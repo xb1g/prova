@@ -1,6 +1,7 @@
 {
   "expo": {
     "name": "prova",
+    "scheme": "prova",
     "slug": "prova",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -24,7 +25,12 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
+      "bundler": "metro",
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-font",
+      "expo-router"
+    ]
   }
 }
