@@ -46,6 +46,26 @@ export type ExtractedProfile = {
   weeklyHours: number;
 };
 
+export type OnboardingChatHistoryItem = {
+  role: "user" | "model";
+  text: string;
+};
+
+export type OnboardingChatResponse =
+  | { type: "message"; text: string }
+  | { type: "done"; text: string; profile: ExtractedProfile };
+
+export async function onboardingChat(
+  history: OnboardingChatHistoryItem[],
+  message: string
+): Promise<OnboardingChatResponse> {
+  const { data, error } = await supabase.functions.invoke("onboarding-chat", {
+    body: { history, message },
+  });
+  if (error) throw error;
+  return data as OnboardingChatResponse;
+}
+
 export async function gradeGoal(params: {
   goalText: string;
   proofTypes?: string[];

@@ -9,60 +9,35 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { supabase } from "../lib/supabase";
-import { useAuth, UserProfile } from "../lib/auth";
-import { onboardingFollowUp, onboardingExtract, ExtractedProfile, OnboardingMessage } from "../lib/ai";
+import { useAuth } from "../lib/auth";
+import {
+  onboardingChat,
+  OnboardingChatHistoryItem,
+  ExtractedProfile,
+} from "../lib/ai";
 
-const TOPICS = [
-  {
-    id: "life_areas",
-    prompt: "What areas of life do you most want to improve right now?",
-  },
-  {
-    id: "direction",
-    prompt: "What does success look like for you in the next 6–12 months?",
-  },
-  {
-    id: "values",
-    prompt: "What matters most to you — your core values?",
-  },
-  {
-    id: "blockers",
-    prompt: "What's getting in your way right now?",
-  },
-  {
-    id: "availability",
-    prompt: "How much time can you realistically commit to new habits per week?",
-  },
-];
-
-type ChatMessage = {
+type DisplayMessage = {
   role: "app" | "user";
   text: string;
 };
 
-type TopicState = {
-  answer: string;
-  followUp: string | null;
-  followUpAnswer: string;
-  phase: "answer" | "followup" | "done";
-};
-
 export default function OnboardingScreen() {
   const { user, refreshProfile } = useAuth();
-  const [topicIndex, setTopicIndex] = useState(0);
-  const [topicStates, setTopicStates] = useState<TopicState[]>(
-    TOPICS.map(() => ({ answer: "", followUp: null, followUpAnswer: "", phase: "answer" }))
-  );
+
+  // Display messages (what the user sees)
+  const [messages, setMessages] = useState<DisplayMessage[]>([]);
+  // API history (role: "user"|"model") — mirrors messages minus loading states
+  const [history, setHistory] = useState<OnboardingChatHistoryItem[]>([]);
+
+  const [isTyping, setIsTyping] = useState(true); // true on mount while AI opens
   const [inputText, setInputText] = useState("");
-  const [loadingFollowUp, setLoadingFollowUp] = useState(false);
-  const [loadingExtract, setLoadingExtract] = useState(false);
 
   // Summary phase
-  const [phase, setPhase] = useState<"chat" | "summary">("chat");
+  const [screenPhase, setScreenPhase] = useState<"chat" | "summary">("chat");
   const [extracted, setExtracted] = useState<ExtractedProfile | null>(null);
   const [editField, setEditField] = useState<keyof ExtractedProfile | null>(null);
   const [saving, setSaving] = useState(false);
@@ -70,76 +45,78 @@ export default function OnboardingScreen() {
   const inputRef = useRef<TextInput>(null);
   const scrollRef = useRef<ScrollView>(null);
 
-  const current = topicStates[topicIndex];
-  const topic = TOPICS[topicIndex];
+  // On mount: get AI's opening message
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await onboardingChat([], "");
+        if (cancelled) return;
+        if (response.type === "message") {
+          setMessages([{ role: "app", text: response.text }]);
+          setHistory([{ role: "model", text: response.text }]);
+        }
+      } catch (err) {
+        console.error("[onboarding-chat open]", err);
+        if (!cancelled) {
+          setMessages([{ role: "app", text: "Hey! Let's get you set up. What areas of your life do you most want to work on right now?" }]);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsTyping(false);
+          setTimeout(() => inputRef.current?.focus(), 150);
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
-  // Build chat messages for display
-  const chatMessages: ChatMessage[] = [];
-  for (let i = 0; i <= topicIndex; i++) {
-    chatMessages.push({ role: "app", text: TOPICS[i].prompt });
-    if (topicStates[i].answer) {
-      chatMessages.push({ role: "user", text: topicStates[i].answer });
+  // Re-focus after AI responds
+  useEffect(() => {
+    if (!isTyping && screenPhase === "chat") {
+      setTimeout(() => inputRef.current?.focus(), 100);
     }
-    if (topicStates[i].followUp) {
-      chatMessages.push({ role: "app", text: topicStates[i].followUp! });
-    }
-    if (topicStates[i].followUpAnswer) {
-      chatMessages.push({ role: "user", text: topicStates[i].followUpAnswer });
-    }
-  }
-
-  const updateCurrent = (patch: Partial<TopicState>) => {
-    setTopicStates((prev) => {
-      const next = [...prev];
-      next[topicIndex] = { ...next[topicIndex], ...patch };
-      return next;
-    });
-  };
+  }, [isTyping]);
 
   const handleSend = async () => {
-    if (!inputText.trim()) return;
     const text = inputText.trim();
+    if (!text || isTyping) return;
     setInputText("");
 
-    if (current.phase === "answer") {
-      updateCurrent({ answer: text, phase: "followup" });
-      setLoadingFollowUp(true);
-      try {
-        const followUp = await onboardingFollowUp(topic.id, text);
-        updateCurrent({ followUp, phase: "followup" });
-      } catch {
-        updateCurrent({ followUp: "Tell me more about that?", phase: "followup" });
-      } finally {
-        setLoadingFollowUp(false);
-      }
-      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
-    } else if (current.phase === "followup") {
-      updateCurrent({ followUpAnswer: text, phase: "done" });
-      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
-    }
-  };
+    // Optimistically show user message in chat
+    setMessages((prev) => [...prev, { role: "user", text }]);
+    setIsTyping(true);
 
-  const handleNext = async () => {
-    if (topicIndex < TOPICS.length - 1) {
-      setTopicIndex((i) => i + 1);
-      inputRef.current?.focus();
-    } else {
-      // All done — extract profile
-      setLoadingExtract(true);
-      try {
-        const messages: OnboardingMessage[] = topicStates.map((s, i) => ({
-          topic: TOPICS[i].id,
-          answer: s.answer,
-          followUpAnswer: s.followUpAnswer,
-        }));
-        const result = await onboardingExtract(messages);
-        setExtracted(result);
-        setPhase("summary");
-      } catch (err) {
-        console.error("[onboarding extract error]", err);
-      } finally {
-        setLoadingExtract(false);
+    // Pass history WITHOUT current message — edge function receives it separately as `message`
+    try {
+      const response = await onboardingChat(history, text);
+
+      if (response.type === "message") {
+        setMessages((prev) => [...prev, { role: "app", text: response.text }]);
+        // Now append both user + model turns to history
+        setHistory((prev) => [
+          ...prev,
+          { role: "user", text },
+          { role: "model", text: response.text },
+        ]);
+        setIsTyping(false);
+      } else if (response.type === "done") {
+        // Show farewell, then switch to summary
+        setMessages((prev) => [...prev, { role: "app", text: response.text }]);
+        setIsTyping(false);
+        // Brief pause so user can read the farewell
+        await new Promise<void>((r) => setTimeout(r, 1200));
+        setExtracted(response.profile);
+        setScreenPhase("summary");
       }
+    } catch (err) {
+      console.error("[onboarding-chat send]", err);
+      setMessages((prev) => [
+        ...prev,
+        { role: "app", text: "Sorry, something went wrong. Try again?" },
+      ]);
+      // Don't update history — keep it clean for a retry
+      setIsTyping(false);
     }
   };
 
@@ -147,15 +124,18 @@ export default function OnboardingScreen() {
     if (!extracted || !user) return;
     setSaving(true);
     try {
-      await supabase.from("user_profiles").upsert({
-        user_id: user.id,
-        onboarding_done: true,
-        life_areas: extracted.lifeAreas,
-        direction: extracted.direction,
-        values: extracted.values,
-        blockers: extracted.blockers,
-        weekly_hours: extracted.weeklyHours,
-      }, { onConflict: "user_id" });
+      await supabase.from("user_profiles").upsert(
+        {
+          user_id: user.id,
+          onboarding_done: true,
+          life_areas: extracted.lifeAreas,
+          direction: extracted.direction,
+          values: extracted.values,
+          blockers: extracted.blockers,
+          weekly_hours: extracted.weeklyHours,
+        },
+        { onConflict: "user_id" }
+      );
       await refreshProfile();
       router.replace("/(tabs)/goals");
     } catch (err) {
@@ -165,89 +145,156 @@ export default function OnboardingScreen() {
     }
   };
 
-  const isCurrentDone = current.phase === "done";
-  const isLastTopic = topicIndex === TOPICS.length - 1;
+  // Summary refinement
+  const [refineText, setRefineText] = useState("");
+  const [isRefining, setIsRefining] = useState(false);
+  const refineInputRef = useRef<TextInput>(null);
 
-  if (phase === "summary" && extracted) {
+  const handleRefine = async () => {
+    const text = refineText.trim();
+    if (!text || isRefining) return;
+    setRefineText("");
+    setIsRefining(true);
+    try {
+      const response = await onboardingChat(history, text);
+      // Update history with this exchange
+      setHistory((prev) => [
+        ...prev,
+        { role: "user", text },
+        { role: "model", text: response.type === "done" ? response.text : response.text },
+      ]);
+      if (response.type === "done" && response.profile) {
+        setExtracted(response.profile);
+      } else if (response.type === "message") {
+        // AI asked a follow-up — just update extracted if we can, keep on summary
+        // Re-extract silently with updated context
+      }
+    } catch (err) {
+      console.error("[refine error]", err);
+    } finally {
+      setIsRefining(false);
+      setTimeout(() => refineInputRef.current?.focus(), 100);
+    }
+  };
+
+
+  if (screenPhase === "summary" && extracted) {
     return (
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={0}
       >
         <StatusBar style="dark" />
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <Text style={styles.summaryTitle}>Here's what I got</Text>
-          <Text style={styles.summarySubtitle}>Tap any field to edit</Text>
 
-          <View style={styles.summaryCard}>
-            <SummaryRow
-              icon="🎯"
-              label="Focus areas"
-              value={extracted.lifeAreas.join(" · ")}
-              editing={editField === "lifeAreas"}
-              onTap={() => setEditField(editField === "lifeAreas" ? null : "lifeAreas")}
-              onChangeText={(v) => setExtracted({ ...extracted, lifeAreas: v.split("·").map((s) => s.trim()).filter(Boolean) })}
-            />
-            <SummaryRow
-              icon="✨"
-              label="Direction"
-              value={extracted.direction}
-              editing={editField === "direction"}
-              onTap={() => setEditField(editField === "direction" ? null : "direction")}
-              onChangeText={(v) => setExtracted({ ...extracted, direction: v })}
-            />
-            <SummaryRow
-              icon="💡"
-              label="Values"
-              value={extracted.values}
-              editing={editField === "values"}
-              onTap={() => setEditField(editField === "values" ? null : "values")}
-              onChangeText={(v) => setExtracted({ ...extracted, values: v })}
-            />
-            <SummaryRow
-              icon="⚡"
-              label="Blockers"
-              value={extracted.blockers}
-              editing={editField === "blockers"}
-              onTap={() => setEditField(editField === "blockers" ? null : "blockers")}
-              onChangeText={(v) => setExtracted({ ...extracted, blockers: v })}
-            />
-            <SummaryRow
-              icon="⏱"
-              label="Weekly time"
-              value={`~${extracted.weeklyHours} hrs / week`}
-              editing={editField === "weeklyHours"}
-              onTap={() => setEditField(editField === "weeklyHours" ? null : "weeklyHours")}
-              onChangeText={(v) => {
-                const n = parseInt(v);
-                if (!isNaN(n)) setExtracted({ ...extracted, weeklyHours: n });
-              }}
-              inputProps={{ keyboardType: "number-pad" }}
-            />
+        {/* Push card toward the bottom */}
+        <View style={styles.summaryOuter}>
+          <View style={styles.summaryInner}>
+            <Text style={styles.summaryTitle}>Here's what I got</Text>
+            <Text style={styles.summarySubtitle}>Tap any field to edit</Text>
+
+            <View style={styles.summaryCard}>
+              <SummaryRow
+                icon="🎯"
+                label="Focus areas"
+                value={extracted.lifeAreas.join(" · ")}
+                editing={editField === "lifeAreas"}
+                onTap={() => setEditField(editField === "lifeAreas" ? null : "lifeAreas")}
+                onChangeText={(v) =>
+                  setExtracted({
+                    ...extracted,
+                    lifeAreas: v.split("·").map((s) => s.trim()).filter(Boolean),
+                  })
+                }
+              />
+              <SummaryRow
+                icon="✨"
+                label="Direction"
+                value={extracted.direction}
+                editing={editField === "direction"}
+                onTap={() => setEditField(editField === "direction" ? null : "direction")}
+                onChangeText={(v) => setExtracted({ ...extracted, direction: v })}
+              />
+              <SummaryRow
+                icon="💡"
+                label="Values"
+                value={extracted.values}
+                editing={editField === "values"}
+                onTap={() => setEditField(editField === "values" ? null : "values")}
+                onChangeText={(v) => setExtracted({ ...extracted, values: v })}
+              />
+              <SummaryRow
+                icon="⚡"
+                label="Blockers"
+                value={extracted.blockers}
+                editing={editField === "blockers"}
+                onTap={() => setEditField(editField === "blockers" ? null : "blockers")}
+                onChangeText={(v) => setExtracted({ ...extracted, blockers: v })}
+              />
+              <SummaryRow
+                icon="⏱"
+                label="Weekly time"
+                value={`~${extracted.weeklyHours} hrs / week`}
+                editing={editField === "weeklyHours"}
+                onTap={() => setEditField(editField === "weeklyHours" ? null : "weeklyHours")}
+                onChangeText={(v) => {
+                  const n = parseInt(v);
+                  if (!isNaN(n)) setExtracted({ ...extracted, weeklyHours: n });
+                }}
+                inputProps={{ keyboardType: "number-pad" }}
+              />
+            </View>
+
+            {/* Confirm button */}
+            <Pressable
+              style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
+              onPress={handleSave}
+              disabled={saving}
+            >
+              {saving ? (
+                <ActivityIndicator size="small" color="#111" />
+              ) : (
+                <Text style={styles.saveBtnText}>Looks good →</Text>
+              )}
+            </Pressable>
           </View>
+        </View>
 
+        {/* Refine input at bottom */}
+        <View style={styles.inputRow}>
+          <TextInput
+            ref={refineInputRef}
+            style={styles.chatInput}
+            placeholder="Add more detail…"
+            placeholderTextColor="#999"
+            value={refineText}
+            onChangeText={setRefineText}
+            multiline
+            returnKeyType="send"
+            onSubmitEditing={handleRefine}
+            blurOnSubmit={false}
+            editable={!isRefining}
+          />
           <Pressable
-            style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
-            onPress={handleSave}
-            disabled={saving}
+            style={[
+              styles.sendBtn,
+              (!refineText.trim() || isRefining) && styles.sendBtnDisabled,
+            ]}
+            onPress={handleRefine}
+            disabled={!refineText.trim() || isRefining}
           >
-            {saving ? (
-              <ActivityIndicator size="small" color="#111" />
+            {isRefining ? (
+              <ActivityIndicator size="small" color="#BFFF00" />
             ) : (
-              <Text style={styles.saveBtnText}>Looks good →</Text>
+              <Text style={styles.sendBtnText}>↑</Text>
             )}
           </Pressable>
-
-          <View style={{ height: 60 }} />
-        </ScrollView>
+        </View>
       </KeyboardAvoidingView>
     );
   }
 
+  // ─── Chat screen ────────────────────────────────────────────────────────────
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -255,28 +302,14 @@ export default function OnboardingScreen() {
     >
       <StatusBar style="dark" />
 
-      {/* Progress dots */}
-      <View style={styles.progressRow}>
-        {TOPICS.map((_, i) => (
-          <View
-            key={i}
-            style={[
-              styles.dot,
-              i <= topicIndex && styles.dotActive,
-              topicStates[i].phase === "done" && styles.dotDone,
-            ]}
-          />
-        ))}
-      </View>
-
       <ScrollView
         ref={scrollRef}
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: 60 }]}
         showsVerticalScrollIndicator={false}
         onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
       >
-        {chatMessages.map((msg, i) => (
+        {messages.map((msg, i) => (
           <View
             key={i}
             style={[
@@ -295,64 +328,75 @@ export default function OnboardingScreen() {
           </View>
         ))}
 
-        {loadingFollowUp && (
-          <View style={styles.bubbleApp}>
-            <ActivityIndicator size="small" color="#111" />
-          </View>
-        )}
-
-        {loadingExtract && (
-          <View style={styles.bubbleApp}>
-            <ActivityIndicator size="small" color="#111" />
-            <Text style={styles.bubbleTextApp}>  Building your profile...</Text>
+        {isTyping && (
+          <View style={[styles.bubble, styles.bubbleApp]}>
+            <TypingDots />
           </View>
         )}
 
         <View style={{ height: 20 }} />
       </ScrollView>
 
-      {isCurrentDone ? (
-        <View style={styles.inputRow}>
-          <Pressable
-            style={styles.nextBtn}
-            onPress={handleNext}
-            disabled={loadingExtract}
-          >
-            <Text style={styles.nextBtnText}>
-              {isLastTopic ? "See my profile →" : "Next →"}
-            </Text>
-          </Pressable>
-        </View>
-      ) : (
-        <View style={styles.inputRow}>
-          <TextInput
-            ref={inputRef}
-            style={styles.chatInput}
-            placeholder={current.phase === "answer" ? "Your answer..." : "Tell me more..."}
-            placeholderTextColor="#999"
-            value={inputText}
-            onChangeText={setInputText}
-            multiline
-            returnKeyType="send"
-            onSubmitEditing={handleSend}
-            blurOnSubmit={false}
-            editable={!loadingFollowUp}
-          />
-          <Pressable
-            style={[styles.sendBtn, (!inputText.trim() || loadingFollowUp) && styles.sendBtnDisabled]}
-            onPress={handleSend}
-            disabled={!inputText.trim() || loadingFollowUp}
-          >
-            <Text style={styles.sendBtnText}>↑</Text>
-          </Pressable>
-        </View>
-      )}
+      <View style={styles.inputRow}>
+        <TextInput
+          ref={inputRef}
+          style={styles.chatInput}
+          placeholder="Type here…"
+          placeholderTextColor="#999"
+          value={inputText}
+          onChangeText={setInputText}
+          multiline
+          returnKeyType="send"
+          onSubmitEditing={handleSend}
+          blurOnSubmit={false}
+          editable={!isTyping}
+        />
+        <Pressable
+          style={[
+            styles.sendBtn,
+            (!inputText.trim() || isTyping) && styles.sendBtnDisabled,
+          ]}
+          onPress={handleSend}
+          disabled={!inputText.trim() || isTyping}
+        >
+          <Text style={styles.sendBtnText}>↑</Text>
+        </Pressable>
+      </View>
     </KeyboardAvoidingView>
   );
 }
 
+// ─── Typing indicator ─────────────────────────────────────────────────────────
+function TypingDots() {
+  const [frame, setFrame] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setFrame((f) => (f + 1) % 3), 400);
+    return () => clearInterval(timer);
+  }, []);
+  const dots = ["•  ", "•• ", "•••"][frame];
+  return (
+    <Text
+      style={{
+        fontSize: 16,
+        color: "#999",
+        letterSpacing: 4,
+        fontFamily: "Orbit_400Regular",
+      }}
+    >
+      {dots}
+    </Text>
+  );
+}
+
+// ─── Summary row ──────────────────────────────────────────────────────────────
 function SummaryRow({
-  icon, label, value, editing, onTap, onChangeText, inputProps,
+  icon,
+  label,
+  value,
+  editing,
+  onTap,
+  onChangeText,
+  inputProps,
 }: {
   icon: string;
   label: string;
@@ -385,23 +429,18 @@ function SummaryRow({
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#FDFFF5" },
-  progressRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 8,
-    paddingTop: 64,
-    paddingBottom: 16,
+  // Summary layout — pushes content to the bottom half
+  summaryOuter: {
+    flex: 1,
+    justifyContent: "flex-end",
   },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#E0E0E0",
+  summaryInner: {
+    paddingHorizontal: 20,
+    paddingBottom: 8,
   },
-  dotActive: { backgroundColor: "#111" },
-  dotDone: { backgroundColor: "#BFFF00" },
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: 20, paddingTop: 8 },
   bubble: {
@@ -474,20 +513,7 @@ const styles = StyleSheet.create({
     color: "#BFFF00",
     fontFamily: "Orbit_400Regular",
   },
-  nextBtn: {
-    flex: 1,
-    backgroundColor: "#BFFF00",
-    borderRadius: 16,
-    paddingVertical: 16,
-    alignItems: "center",
-  },
-  nextBtnText: {
-    fontSize: 15,
-    fontFamily: "Orbit_400Regular",
-    fontWeight: "600",
-    color: "#111",
-  },
-  // Summary styles
+  // Summary
   summaryTitle: {
     fontSize: 26,
     fontFamily: "Orbit_400Regular",

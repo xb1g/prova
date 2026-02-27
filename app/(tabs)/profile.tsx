@@ -4,13 +4,7 @@ import { router } from "expo-router";
 import { useAuth } from "../../lib/auth";
 import { supabase } from "../../lib/supabase";
 
-function StatBox({
-  value,
-  label,
-}: {
-  value: number | string;
-  label: string;
-}) {
+function StatBox({ value, label }: { value: number | string; label: string }) {
   return (
     <View style={styles.statBox}>
       <Text style={styles.statValue}>{value}</Text>
@@ -19,8 +13,21 @@ function StatBox({
   );
 }
 
+function ProfileRow({ icon, label, value }: { icon: string; label: string; value: string }) {
+  if (!value) return null;
+  return (
+    <View style={styles.profileRow}>
+      <View style={styles.profileRowHeader}>
+        <Text style={styles.profileRowIcon}>{icon}</Text>
+        <Text style={styles.profileRowLabel}>{label}</Text>
+      </View>
+      <Text style={styles.profileRowValue}>{value}</Text>
+    </View>
+  );
+}
+
 export default function ProfileScreen() {
-  const { user, signInWithGoogle } = useAuth();
+  const { user, profile } = useAuth();
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -62,13 +69,41 @@ export default function ProfileScreen() {
           <StatBox value="0d" label="Streak" />
         </View>
 
+        {/* Profile data from onboarding */}
+        {profile && (
+          <View style={styles.profileCard}>
+            {profile.life_areas?.length > 0 && (
+              <View style={styles.profileRow}>
+                <View style={styles.profileRowHeader}>
+                  <Text style={styles.profileRowIcon}>🎯</Text>
+                  <Text style={styles.profileRowLabel}>Focus areas</Text>
+                </View>
+                <View style={styles.tagsRow}>
+                  {profile.life_areas.map((area) => (
+                    <View key={area} style={styles.tag}>
+                      <Text style={styles.tagText}>{area}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+            <ProfileRow icon="✨" label="Direction" value={profile.direction} />
+            <ProfileRow icon="💡" label="Values" value={profile.values} />
+            <ProfileRow icon="⚡" label="Blockers" value={profile.blockers} />
+            {profile.weekly_hours > 0 && (
+              <ProfileRow
+                icon="⏱"
+                label="Weekly time"
+                value={`~${profile.weekly_hours} hrs / week`}
+              />
+            )}
+          </View>
+        )}
+
         {/* Actions */}
         <View style={styles.actions}>
           <Pressable
-            style={({ pressed }) => [
-              styles.actionRow,
-              pressed && styles.actionRowPressed,
-            ]}
+            style={({ pressed }) => [styles.actionRow, pressed && styles.actionRowPressed]}
           >
             <Text style={styles.actionLabel}>Friends</Text>
             <Text style={styles.actionArrow}>→</Text>
@@ -77,10 +112,7 @@ export default function ProfileScreen() {
           <View style={styles.divider} />
 
           <Pressable
-            style={({ pressed }) => [
-              styles.actionRow,
-              pressed && styles.actionRowPressed,
-            ]}
+            style={({ pressed }) => [styles.actionRow, pressed && styles.actionRowPressed]}
           >
             <Text style={styles.actionLabel}>Notifications</Text>
             <Text style={styles.actionArrow}>→</Text>
@@ -89,10 +121,7 @@ export default function ProfileScreen() {
           <View style={styles.divider} />
 
           <Pressable
-            style={({ pressed }) => [
-              styles.actionRow,
-              pressed && styles.actionRowPressed,
-            ]}
+            style={({ pressed }) => [styles.actionRow, pressed && styles.actionRowPressed]}
           >
             <Text style={styles.actionLabel}>Settings</Text>
             <Text style={styles.actionArrow}>→</Text>
@@ -101,16 +130,11 @@ export default function ProfileScreen() {
 
         {/* Sign out */}
         <Pressable
-          style={({ pressed }) => [
-            styles.signOutBtn,
-            pressed && styles.signOutBtnPressed,
-          ]}
+          style={({ pressed }) => [styles.signOutBtn, pressed && styles.signOutBtnPressed]}
           onPress={handleSignOut}
         >
           {({ pressed }) => (
-            <Text
-              style={[styles.signOutText, pressed && styles.signOutTextPressed]}
-            >
+            <Text style={[styles.signOutText, pressed && styles.signOutTextPressed]}>
               Sign out
             </Text>
           )}
@@ -121,16 +145,9 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#FDFFF5",
-  },
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 40,
-  },
+  container: { flex: 1, backgroundColor: "#FDFFF5" },
+  scroll: { flex: 1 },
+  scrollContent: { paddingBottom: 40 },
   header: {
     paddingTop: 64,
     paddingHorizontal: 24,
@@ -160,10 +177,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 8,
   },
-  avatarText: {
-    fontSize: 32,
-    color: "#111",
-  },
+  avatarText: { fontSize: 32, color: "#111" },
   name: {
     fontSize: 22,
     fontFamily: "Orbit_400Regular",
@@ -184,16 +198,8 @@ const styles = StyleSheet.create({
     borderColor: "#111",
     marginBottom: 32,
   },
-  statBox: {
-    flex: 1,
-    alignItems: "center",
-    paddingVertical: 20,
-    gap: 4,
-  },
-  statDivider: {
-    width: 2,
-    backgroundColor: "#111",
-  },
+  statBox: { flex: 1, alignItems: "center", paddingVertical: 20, gap: 4 },
+  statDivider: { width: 2, backgroundColor: "#111" },
   statValue: {
     fontSize: 24,
     fontFamily: "Orbit_400Regular",
@@ -208,6 +214,57 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     textTransform: "uppercase",
   },
+  // Profile data card
+  profileCard: {
+    marginHorizontal: 24,
+    borderWidth: 2,
+    borderColor: "#111",
+    marginBottom: 32,
+  },
+  profileRow: {
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E8E8E8",
+    gap: 6,
+  },
+  profileRowHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  profileRowIcon: { fontSize: 14 },
+  profileRowLabel: {
+    fontSize: 10,
+    fontFamily: "Orbit_400Regular",
+    color: "#999",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  profileRowValue: {
+    fontSize: 13,
+    fontFamily: "Orbit_400Regular",
+    color: "#111",
+    lineHeight: 18,
+  },
+  tagsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  tag: {
+    backgroundColor: "#BFFF00",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  tagText: {
+    fontSize: 11,
+    fontFamily: "Orbit_400Regular",
+    fontWeight: "600",
+    color: "#111",
+  },
+  // Actions
   actions: {
     marginHorizontal: 24,
     borderWidth: 2,
@@ -221,23 +278,15 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 20,
   },
-  actionRowPressed: {
-    backgroundColor: "#111",
-  },
+  actionRowPressed: { backgroundColor: "#111" },
   actionLabel: {
     fontSize: 14,
     fontFamily: "Orbit_400Regular",
     fontWeight: "400",
     color: "#111",
   },
-  actionArrow: {
-    fontSize: 16,
-    color: "#555",
-  },
-  divider: {
-    height: 2,
-    backgroundColor: "#111",
-  },
+  actionArrow: { fontSize: 16, color: "#555" },
+  divider: { height: 2, backgroundColor: "#111" },
   signOutBtn: {
     marginHorizontal: 24,
     borderWidth: 2,
@@ -245,9 +294,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: "center",
   },
-  signOutBtnPressed: {
-    backgroundColor: "#111",
-  },
+  signOutBtnPressed: { backgroundColor: "#111" },
   signOutText: {
     fontSize: 14,
     fontFamily: "Orbit_400Regular",
@@ -255,7 +302,5 @@ const styles = StyleSheet.create({
     color: "#111",
     letterSpacing: 0.5,
   },
-  signOutTextPressed: {
-    color: "#FDFFF5",
-  },
+  signOutTextPressed: { color: "#FDFFF5" },
 });
