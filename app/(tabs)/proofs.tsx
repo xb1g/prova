@@ -1,13 +1,11 @@
-import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
+import { Platform, View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const TABS = ["Mine", "Friends"] as const;
-type ProofTab = typeof TABS[number];
-
-import { useState } from "react";
+const FAB_BOTTOM_OFFSET = Platform.OS === "ios" ? 120 : 108;
 
 export default function ProofsScreen() {
-  const [activeTab, setActiveTab] = useState<ProofTab>("Mine");
+  const insets = useSafeAreaInsets();
 
   return (
     <View style={styles.container}>
@@ -17,27 +15,6 @@ export default function ProofsScreen() {
         <Text style={styles.title}>Proofs</Text>
       </View>
 
-      {/* Sub-tabs */}
-      <View style={styles.subTabs}>
-        {TABS.map((tab) => (
-          <Pressable
-            key={tab}
-            style={styles.subTab}
-            onPress={() => setActiveTab(tab)}
-          >
-            <Text
-              style={[
-                styles.subTabText,
-                activeTab === tab && styles.subTabTextActive,
-              ]}
-            >
-              {tab}
-            </Text>
-            {activeTab === tab && <View style={styles.subTabUnderline} />}
-          </Pressable>
-        ))}
-      </View>
-
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
@@ -45,20 +22,21 @@ export default function ProofsScreen() {
       >
         <View style={styles.emptyState}>
           <Text style={styles.emptyIcon}>□</Text>
-          <Text style={styles.emptyTitle}>
-            {activeTab === "Mine" ? "No proofs submitted" : "No friend proofs"}
-          </Text>
+          <Text style={styles.emptyTitle}>No proofs in your feed yet</Text>
           <Text style={styles.emptyBody}>
-            {activeTab === "Mine"
-              ? "Complete a goal action and\nsubmit your proof here."
-              : "Your friends haven't posted\nany proofs yet."}
+            Complete a goal action to submit your proof.{"\n"}
+            Your friends&apos; proofs will also appear in this combined feed.
           </Text>
         </View>
       </ScrollView>
 
       {/* Submit proof FAB */}
       <Pressable
-        style={({ pressed }) => [styles.fab, pressed && styles.fabPressed]}
+        style={({ pressed }) => [
+          styles.fab,
+          { bottom: FAB_BOTTOM_OFFSET + insets.bottom },
+          pressed && styles.fabPressed,
+        ]}
       >
         {({ pressed }) => (
           <Text style={[styles.fabText, pressed && styles.fabTextPressed]}>
@@ -82,41 +60,10 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 32,
-    fontFamily: "Orbit_400Regular",
-    fontWeight: "400",
+    fontFamily: "Inter_800ExtraBold",
+    fontWeight: "800",
     color: "#111",
-    letterSpacing: 1,
-  },
-  subTabs: {
-    flexDirection: "row",
-    paddingHorizontal: 24,
-    borderBottomWidth: 2,
-    borderBottomColor: "#111",
-    marginTop: 16,
-  },
-  subTab: {
-    marginRight: 32,
-    paddingBottom: 12,
-    position: "relative",
-  },
-  subTabText: {
-    fontSize: 14,
-    fontFamily: "Orbit_400Regular",
-    fontWeight: "300",
-    color: "#555",
-    letterSpacing: 0.5,
-  },
-  subTabTextActive: {
-    color: "#111",
-    fontWeight: "400",
-  },
-  subTabUnderline: {
-    position: "absolute",
-    bottom: -2,
-    left: 0,
-    right: 0,
-    height: 2,
-    backgroundColor: "#BFFF00",
+    letterSpacing: 0.2,
   },
   scroll: {
     flex: 1,
@@ -138,13 +85,13 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 18,
-    fontFamily: "Orbit_400Regular",
-    fontWeight: "400",
+    fontFamily: "Inter_500Medium",
+    fontWeight: "500",
     color: "#111",
   },
   emptyBody: {
     fontSize: 13,
-    fontFamily: "Orbit_400Regular",
+    fontFamily: "Inter_300Light_Italic",
     fontWeight: "300",
     color: "#555",
     textAlign: "center",
@@ -152,13 +99,20 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: "absolute",
-    bottom: 24,
+    left: 24,
     right: 24,
     backgroundColor: "#111",
     paddingVertical: 14,
-    paddingHorizontal: 24,
     borderWidth: 2,
     borderColor: "#111",
+    alignItems: "center",
+    borderRadius: 30,
+    zIndex: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8,
   },
   fabPressed: {
     backgroundColor: "#BFFF00",
@@ -166,10 +120,10 @@ const styles = StyleSheet.create({
   },
   fabText: {
     fontSize: 13,
-    fontFamily: "Orbit_400Regular",
-    fontWeight: "400",
+    fontFamily: "Inter_600SemiBold",
+    fontWeight: "600",
     color: "#FDFFF5",
-    letterSpacing: 0.5,
+    letterSpacing: 0.2,
   },
   fabTextPressed: {
     color: "#111",

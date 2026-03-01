@@ -236,9 +236,9 @@ const styles = StyleSheet.create({
   logo: {
     fontSize: 40,
     color: "#111",
-    letterSpacing: 2,
-    fontWeight: "400",
-    fontFamily: "Orbit_400Regular",
+    letterSpacing: 0.2,
+    fontWeight: "900",
+    fontFamily: "Inter_900Black",
   },
   hero: {
     paddingHorizontal: 24,
@@ -249,8 +249,8 @@ const styles = StyleSheet.create({
     fontSize: 32,
     lineHeight: 42,
     color: "#111",
-    fontFamily: "Orbit_400Regular",
-    fontWeight: "400",
+    fontFamily: "Inter_500Medium",
+    fontWeight: "500",
   },
   goodRow: {
     position: "relative",
@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
   },
   signInText: {
     fontSize: 16,
-    fontFamily: "Orbit_400Regular",
+    fontFamily: "Inter_700Bold",
     fontWeight: "700",
     color: "#111",
   },
@@ -290,7 +290,7 @@ const styles = StyleSheet.create({
   },
   subLine: {
     fontSize: 14,
-    fontFamily: "Orbit_400Regular",
+    fontFamily: "Inter_300Light",
     fontWeight: "300",
     color: "#111",
   },

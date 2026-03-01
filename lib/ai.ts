@@ -3,6 +3,7 @@ import { UserProfile } from "./auth";
 
 export type SmartGradeResult = {
   score: number;
+  degraded?: boolean;
   scores: {
     specific: number;
     measurable: number;
@@ -54,6 +55,15 @@ export type OnboardingChatHistoryItem = {
 export type OnboardingChatResponse =
   | { type: "message"; text: string }
   | { type: "done"; text: string; profile: ExtractedProfile };
+
+export type CreateGoalPayload = {
+  goalText: string;
+  proofTypes: string[];
+  proofDescription: string;
+  smartGrade: SmartGradeResult | null;
+  parsedGoal: GoalParseResult | null;
+  realityResult: RealityCheckResult | null;
+};
 
 export async function onboardingChat(
   history: OnboardingChatHistoryItem[],
@@ -131,4 +141,19 @@ export async function onboardingExtract(
   });
   if (error) throw error;
   return data as ExtractedProfile;
+}
+
+export async function createGoal(payload: CreateGoalPayload): Promise<{ id: string }> {
+  const { data, error } = await supabase.functions.invoke("create-goal", {
+    body: {
+      goalText: payload.goalText,
+      proofTypes: payload.proofTypes,
+      proofDescription: payload.proofDescription,
+      smartGrade: payload.smartGrade,
+      parsedGoal: payload.parsedGoal,
+      realityResult: payload.realityResult,
+    },
+  });
+  if (error) throw error;
+  return data as { id: string };
 }

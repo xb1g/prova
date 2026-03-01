@@ -9,6 +9,11 @@ const TAB_ICONS: Record<string, { label: string; icon: string; activeIcon: strin
     icon: "○",
     activeIcon: "●",
   },
+  proof: {
+    label: "Proof",
+    icon: "□",
+    activeIcon: "■",
+  },
   proofs: {
     label: "Proofs",
     icon: "□",
@@ -21,13 +26,41 @@ const TAB_ICONS: Record<string, { label: string; icon: string; activeIcon: strin
   },
 };
 
+type TabOptions = {
+  tabBarLabel?: string | ((props: { focused: boolean; color: string; position: "below-icon" | "beside-icon" }) => string);
+  title?: string;
+};
+
+function getTabMeta(routeName: string, options: TabOptions) {
+  const configured = TAB_ICONS[routeName];
+  if (configured) return configured;
+
+  const routeLabel = String(
+    typeof options.tabBarLabel === "string"
+      ? options.tabBarLabel
+      : typeof options.title === "string"
+      ? options.title
+      : routeName
+  );
+
+  const label = routeLabel
+    .replace(/-/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+
+  return {
+    label,
+    icon: "◌",
+    activeIcon: "⦿",
+  };
+}
+
 function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   return (
     <View style={styles.tabBar}>
       {state.routes.map((route, index) => {
         const { options } = descriptors[route.key];
         const isFocused = state.index === index;
-        const tab = TAB_ICONS[route.name];
+        const tab = getTabMeta(route.name, options);
 
         const onPress = () => {
           const event = navigation.emit({
@@ -118,10 +151,10 @@ const styles = StyleSheet.create({
   },
   tabLabel: {
     fontSize: 10,
-    fontFamily: "Orbit_400Regular",
-    fontWeight: "400",
+    fontFamily: "Inter_500Medium",
+    fontWeight: "500",
     color: "#999",
-    letterSpacing: 0.5,
+    letterSpacing: 0.12,
   },
   tabLabelActive: {
     color: "#111",

@@ -76,10 +76,10 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 32,
-    fontFamily: "Orbit_400Regular",
-    fontWeight: "400",
+    fontFamily: "Inter_900Black",
+    fontWeight: "900",
     color: "#111",
-    letterSpacing: 1,
+    letterSpacing: 0.2,
   },
   addBtn: {
     borderWidth: 2,
@@ -92,8 +92,8 @@ const styles = StyleSheet.create({
   },
   addBtnText: {
     fontSize: 13,
-    fontFamily: "Orbit_400Regular",
-    fontWeight: "400",
+    fontFamily: "Inter_600SemiBold",
+    fontWeight: "600",
     color: "#111",
   },
   addBtnTextPressed: {
@@ -119,13 +119,13 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 18,
-    fontFamily: "Orbit_400Regular",
-    fontWeight: "400",
+    fontFamily: "Inter_500Medium",
+    fontWeight: "500",
     color: "#111",
   },
   emptyBody: {
     fontSize: 13,
-    fontFamily: "Orbit_400Regular",
+    fontFamily: "Inter_300Light",
     fontWeight: "300",
     color: "#555",
     textAlign: "center",
@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
     padding: 24,
     textAlign: "center",
     color: "#555",
-    fontFamily: "Orbit_400Regular",
+    fontFamily: "Inter_400Regular_Italic",
   },
   emptyCtaBtn: {
     backgroundColor: "#BFFF00",
@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
   },
   emptyCtaText: {
     fontSize: 15,
-    fontFamily: "Orbit_400Regular",
+    fontFamily: "Inter_600SemiBold",
     fontWeight: "600",
     color: "#111",
   },

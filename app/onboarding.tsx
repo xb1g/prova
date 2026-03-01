@@ -375,14 +375,14 @@ function TypingDots() {
   }, []);
   const dots = ["•  ", "•• ", "•••"][frame];
   return (
-    <Text
-      style={{
-        fontSize: 16,
-        color: "#999",
-        letterSpacing: 4,
-        fontFamily: "Orbit_400Regular",
-      }}
-    >
+      <Text
+        style={{
+          fontSize: 16,
+          color: "#999",
+          letterSpacing: 0.12,
+          fontFamily: "Inter_200ExtraLight_Italic",
+        }}
+      >
       {dots}
     </Text>
   );
@@ -467,7 +467,7 @@ const styles = StyleSheet.create({
   },
   bubbleText: {
     fontSize: 14,
-    fontFamily: "Orbit_400Regular",
+    fontFamily: "Inter_400Regular_Italic",
     lineHeight: 20,
   },
   bubbleTextApp: { color: "#111" },
@@ -490,7 +490,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 14,
-    fontFamily: "Orbit_400Regular",
+    fontFamily: "Inter_400Regular",
     color: "#111",
     maxHeight: 100,
     shadowColor: "#000",
@@ -511,12 +511,12 @@ const styles = StyleSheet.create({
   sendBtnText: {
     fontSize: 18,
     color: "#BFFF00",
-    fontFamily: "Orbit_400Regular",
+    fontFamily: "Inter_500Medium",
   },
   // Summary
   summaryTitle: {
     fontSize: 26,
-    fontFamily: "Orbit_400Regular",
+    fontFamily: "Inter_600SemiBold",
     fontWeight: "600",
     color: "#111",
     marginTop: 40,
@@ -524,7 +524,8 @@ const styles = StyleSheet.create({
   },
   summarySubtitle: {
     fontSize: 13,
-    fontFamily: "Orbit_400Regular",
+    fontFamily: "Inter_300Light",
+    fontWeight: "300",
     color: "#666",
     marginBottom: 24,
   },
@@ -551,20 +552,20 @@ const styles = StyleSheet.create({
   summaryContent: { flex: 1 },
   summaryLabel: {
     fontSize: 10,
-    fontFamily: "Orbit_400Regular",
+    fontFamily: "Inter_400Regular_Italic",
     color: "#999",
     marginBottom: 4,
-    letterSpacing: 0.5,
+    letterSpacing: 0.2,
   },
   summaryValue: {
     fontSize: 14,
-    fontFamily: "Orbit_400Regular",
+    fontFamily: "Inter_400Regular",
     color: "#111",
     lineHeight: 20,
   },
   summaryEditInput: {
     fontSize: 14,
-    fontFamily: "Orbit_400Regular",
+    fontFamily: "Inter_500Medium",
     color: "#111",
     borderBottomWidth: 1,
     borderBottomColor: "#BFFF00",
@@ -573,6 +574,7 @@ const styles = StyleSheet.create({
   editHint: {
     fontSize: 18,
     color: "#CCC",
+    fontFamily: "Inter_100Thin_Italic",
     marginTop: 4,
   },
   saveBtn: {
@@ -590,9 +592,9 @@ const styles = StyleSheet.create({
   saveBtnDisabled: { opacity: 0.5 },
   saveBtnText: {
     fontSize: 16,
-    fontFamily: "Orbit_400Regular",
+    fontFamily: "Inter_600SemiBold",
     fontWeight: "600",
     color: "#111",
-    letterSpacing: 0.5,
+    letterSpacing: 0.12,
   },
 });

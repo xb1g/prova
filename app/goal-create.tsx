@@ -17,6 +17,7 @@ import {
   gradeGoal,
   realityCheck,
   parseGoal,
+  createGoal,
   SmartGradeResult,
   RealityCheckResult,
   GoalParseResult,
@@ -57,12 +58,15 @@ export default function GoalCreateScreen() {
   const [checkingReality, setCheckingReality] = useState(false);
   const [realityDone, setRealityDone] = useState(false);
   const [realityError, setRealityError] = useState<string | null>(null);
+  const [creatingGoal, setCreatingGoal] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const [friendSearch, setFriendSearch] = useState("");
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const goalInputRef = useRef<TextInput>(null);
   const friendInputRef = useRef<TextInput>(null);
+  const gradeRunRef = useRef(0);
 
   const showMeasurement = goalText.trim().length > 5;
   const showRealityCheck = selectedMeasurements.length > 0;
@@ -80,6 +84,7 @@ export default function GoalCreateScreen() {
       parsed: GoalParseResult | null
     ) => {
       if (text.trim().length < 5) return;
+      const runId = ++gradeRunRef.current;
       setGrading(true);
       setGradeError(null);
       try {
@@ -90,11 +95,15 @@ export default function GoalCreateScreen() {
           userProfile: userProfileForGrading,
           parsedFrequency: parsed?.humanReadable ?? null,
         });
+        if (runId !== gradeRunRef.current) return;
         setSmartGrade(result);
       } catch (err: unknown) {
+        if (runId !== gradeRunRef.current) return;
         setGradeError(err instanceof Error ? err.message : String(err));
       } finally {
-        setGrading(false);
+        if (runId === gradeRunRef.current) {
+          setGrading(false);
+        }
       }
     },
     [profile]
@@ -154,6 +163,26 @@ export default function GoalCreateScreen() {
     }
   };
 
+  const handleStartChallenge = async () => {
+    setCreatingGoal(true);
+    setCreateError(null);
+    try {
+      await createGoal({
+        goalText,
+        proofTypes: selectedMeasurements,
+        proofDescription: proofDescription.trim(),
+        smartGrade,
+        parsedGoal,
+        realityResult,
+      });
+      router.replace("/(tabs)/goals");
+    } catch (err: unknown) {
+      setCreateError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setCreatingGoal(false);
+    }
+  };
+
   const scoreColor = (score: number) => {
     if (score >= 80) return "#BFFF00";
     if (score >= 50) return "#FFE500";
@@ -210,44 +239,59 @@ export default function GoalCreateScreen() {
             </View>
           )}
 
-          {gradeError && <Text style={styles.errorText}>⚠️ {gradeError}</Text>}
-          {grading && (
-            <View style={styles.gradeRow}>
-              <ActivityIndicator size="small" color="#111" />
-              <Text style={styles.gradingText}>Grading...</Text>
-            </View>
-          )}
-
-          {!grading && smartGrade && (
+          {(grading || Boolean(smartGrade) || Boolean(gradeError)) && (
             <View style={styles.gradeContainer}>
-              <View style={styles.overallRow}>
-                <Text style={styles.overallLabel}>SMART Score</Text>
-                <View style={[styles.scoreBadge, { backgroundColor: scoreColor(smartGrade.score) }]}>
-                  <Text style={styles.scoreText}>{smartGrade.score}%</Text>
-                </View>
-              </View>
-              {SMART_DIMS.map(({ key, label, full }) => {
-                const score = smartGrade.scores?.[key] ?? 0;
-                const tip = smartGrade.tips[key];
-                return (
-                  <View key={key} style={styles.dimRow}>
-                    <View style={styles.dimLabelWrap}>
-                      <Text style={styles.dimLetter}>{label}</Text>
-                      <Text style={styles.dimFull}>{full}</Text>
-                    </View>
-                    <View style={styles.dimBarTrack}>
-                      <View
-                        style={[
-                          styles.dimBarFill,
-                          { width: `${score}%` as any, backgroundColor: scoreColor(score) },
-                        ]}
-                      />
-                    </View>
-                    <Text style={[styles.dimScore, { color: scoreColor(score) }]}>{score}</Text>
-                    {tip && <Text style={styles.dimTip}>⚠️ {tip}</Text>}
+              {grading ? (
+                <View>
+                  <View style={styles.gradeRow}>
+                    <ActivityIndicator size="small" color="#111" />
+                    <Text style={styles.gradingText}>Grading...</Text>
                   </View>
-                );
-              })}
+                  <Text style={styles.placeholderTitle}>Estimated score will appear here</Text>
+                  {SMART_DIMS.map((item) => (
+                    <View key={item.key} style={styles.placeholderRow}>
+                      <Text style={styles.placeholderDimLabel}>{item.label}</Text>
+                      <View style={styles.placeholderBar} />
+                    </View>
+                  ))}
+                </View>
+              ) : smartGrade ? (
+                <View>
+                  <View style={styles.overallRow}>
+                    <Text style={styles.overallLabel}>SMART Score</Text>
+                    <View style={[styles.scoreBadge, { backgroundColor: scoreColor(smartGrade.score) }]}>
+                      <Text style={styles.scoreText}>{smartGrade.score}%</Text>
+                    </View>
+                  </View>
+                  {smartGrade.degraded && (
+                    <Text style={styles.degradedText}>Using offline estimate while AI quota is unavailable.</Text>
+                  )}
+                  {SMART_DIMS.map(({ key, label, full }) => {
+                    const score = smartGrade.scores?.[key] ?? 0;
+                    const tip = smartGrade.tips[key];
+                    return (
+                      <View key={key} style={styles.dimRow}>
+                        <View style={styles.dimLabelWrap}>
+                          <Text style={styles.dimLetter}>{label}</Text>
+                          <Text style={styles.dimFull}>{full}</Text>
+                        </View>
+                        <View style={styles.dimBarTrack}>
+                          <View
+                            style={[
+                              styles.dimBarFill,
+                              { width: `${score}%` as any, backgroundColor: scoreColor(score) },
+                            ]}
+                          />
+                        </View>
+                        <Text style={[styles.dimScore, { color: scoreColor(score) }]}>{score}</Text>
+                        {tip && <Text style={styles.dimTip}>⚠️ {tip}</Text>}
+                      </View>
+                    );
+                  })}
+                </View>
+              ) : (
+                <Text style={styles.errorText}>⚠️ {gradeError}</Text>
+              )}
             </View>
           )}
         </View>
@@ -348,8 +392,17 @@ export default function GoalCreateScreen() {
 
         {showInvite && (
           <View style={styles.section}>
-            <Pressable style={styles.startBtn}>
-              <Text style={styles.startBtnText}>🚀 Start Challenge</Text>
+            {createError && <Text style={styles.errorText}>⚠️ {createError}</Text>}
+            <Pressable
+              style={[styles.startBtn, creatingGoal && styles.startBtnDisabled]}
+              onPress={handleStartChallenge}
+              disabled={creatingGoal}
+            >
+              {creatingGoal ? (
+                <ActivityIndicator size="small" color="#111" />
+              ) : (
+                <Text style={styles.startBtnText}>🚀 Start Challenge</Text>
+              )}
             </Pressable>
           </View>
         )}
@@ -372,26 +425,25 @@ const styles = StyleSheet.create({
   },
   backBtn: {
     fontSize: 14,
-    fontFamily: "Orbit_400Regular",
+    fontFamily: "Inter_100Thin",
     color: "#111",
+    letterSpacing: 0.1,
     width: 60,
   },
   title: {
     fontSize: 20,
-    fontFamily: "Orbit_400Regular",
-    fontWeight: "600",
+    fontFamily: "Inter_800ExtraBold",
     color: "#111",
-    letterSpacing: 1,
+    letterSpacing: 0.2,
   },
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: 20, paddingTop: 8 },
   section: { marginBottom: 28 },
   sectionLabel: {
     fontSize: 13,
-    fontFamily: "Orbit_400Regular",
+    fontFamily: "Inter_200ExtraLight_Italic",
     color: "#111",
     marginBottom: 10,
-    fontWeight: "500",
   },
   inputCard: {
     backgroundColor: "#FFF",
@@ -406,7 +458,7 @@ const styles = StyleSheet.create({
     padding: 16,
     minHeight: 80,
     fontSize: 15,
-    fontFamily: "Orbit_400Regular",
+    fontFamily: "Inter_300Light",
     color: "#111",
   },
   parseChip: {
@@ -422,11 +474,13 @@ const styles = StyleSheet.create({
   parseChipText: {
     flex: 1,
     fontSize: 12,
-    fontFamily: "Orbit_400Regular",
+    fontFamily: "Inter_400Regular_Italic",
     color: "#4A7000",
+    letterSpacing: 0.05,
   },
   parseChipDismiss: {
     fontSize: 12,
+    fontFamily: "Inter_100Thin_Italic",
     color: "#888",
   },
   gradeRow: {
@@ -436,21 +490,51 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   gradingText: {
-    fontSize: 12,
-    fontFamily: "Orbit_400Regular",
-    color: "#666",
+    fontSize: 14,
+    fontFamily: "Inter_300Light",
+    color: "#333",
+    letterSpacing: 0.08,
   },
   gradeContainer: {
     marginTop: 12,
     backgroundColor: "#FFF",
     borderRadius: 16,
     padding: 14,
+    minHeight: 140,
     gap: 10,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 3,
+    borderWidth: 1,
+    borderColor: "#E8E8E8",
+  },
+  placeholderTitle: {
+    fontSize: 14,
+    color: "#444",
+    marginBottom: 8,
+    fontFamily: "Inter_400Regular_Italic",
+    letterSpacing: 0.05,
+  },
+  placeholderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    marginBottom: 6,
+  },
+  placeholderDimLabel: {
+    width: 18,
+    fontSize: 13,
+    fontFamily: "Inter_700Bold",
+    color: "#666",
+  },
+  placeholderBar: {
+    flex: 1,
+    height: 8,
+    borderRadius: 3,
+    backgroundColor: "#E6E6E6",
   },
   overallRow: {
     flexDirection: "row",
@@ -458,11 +542,18 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 4,
   },
-  overallLabel: {
+  degradedText: {
     fontSize: 12,
-    fontFamily: "Orbit_400Regular",
-    color: "#666",
-    letterSpacing: 0.5,
+    color: "#555",
+    marginBottom: 6,
+    fontFamily: "Inter_300Light_Italic",
+    letterSpacing: 0.05,
+  },
+  overallLabel: {
+    fontSize: 14,
+    fontFamily: "Inter_100Thin",
+    color: "#333",
+    letterSpacing: 0.1,
   },
   scoreBadge: {
     paddingHorizontal: 12,
@@ -470,9 +561,8 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   scoreText: {
-    fontSize: 13,
-    fontFamily: "Orbit_400Regular",
-    fontWeight: "600",
+    fontSize: 15,
+    fontFamily: "Inter_800ExtraBold_Italic",
     color: "#111",
   },
   dimRow: {
@@ -488,20 +578,20 @@ const styles = StyleSheet.create({
     width: 90,
   },
   dimLetter: {
-    fontSize: 13,
-    fontFamily: "Orbit_400Regular",
-    fontWeight: "600",
+    fontSize: 14,
+    fontFamily: "Inter_700Bold",
     color: "#111",
   },
   dimFull: {
-    fontSize: 10,
-    fontFamily: "Orbit_400Regular",
-    color: "#999",
+    fontSize: 12,
+    fontFamily: "Inter_200ExtraLight",
+    letterSpacing: 0.05,
+    color: "#666",
   },
   dimBarTrack: {
     flex: 1,
     height: 6,
-    backgroundColor: "#F0F0F0",
+    backgroundColor: "#EAEAEA",
     borderRadius: 3,
     overflow: "hidden",
   },
@@ -510,19 +600,18 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   dimScore: {
-    fontSize: 12,
-    fontFamily: "Orbit_400Regular",
-    fontWeight: "600",
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
     width: 28,
     textAlign: "right",
   },
   dimTip: {
-    fontSize: 10,
-    fontFamily: "Orbit_400Regular",
-    color: "#999",
+    fontSize: 12,
+    fontFamily: "Inter_300Light_Italic",
+    color: "#666",
     width: "100%",
     paddingLeft: 98,
-    lineHeight: 14,
+    lineHeight: 16,
   },
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: {
@@ -537,13 +626,13 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   chipSelected: { backgroundColor: "#111" },
-  chipText: { fontSize: 13, fontFamily: "Orbit_400Regular", color: "#111" },
+  chipText: { fontSize: 13, fontFamily: "Inter_500Medium", color: "#111" },
   chipTextSelected: { color: "#BFFF00" },
   proofInput: {
     padding: 14,
     minHeight: 60,
     fontSize: 14,
-    fontFamily: "Orbit_400Regular",
+    fontFamily: "Inter_200ExtraLight",
     color: "#111",
   },
   realityBtn: {
@@ -560,10 +649,9 @@ const styles = StyleSheet.create({
   realityBtnDisabled: { opacity: 0.5 },
   realityBtnText: {
     fontSize: 15,
-    fontFamily: "Orbit_400Regular",
-    fontWeight: "600",
+    fontFamily: "Inter_600SemiBold_Italic",
     color: "#111",
-    letterSpacing: 0.5,
+    letterSpacing: 0.15,
   },
   realityResult: {
     marginTop: 16,
@@ -579,27 +667,27 @@ const styles = StyleSheet.create({
   },
   likelihoodText: {
     fontSize: 18,
-    fontFamily: "Orbit_400Regular",
-    fontWeight: "600",
+    fontFamily: "Inter_900Black",
     color: "#111",
   },
   pitfallText: {
     fontSize: 13,
-    fontFamily: "Orbit_400Regular",
+    fontFamily: "Inter_300Light",
     color: "#666",
     lineHeight: 18,
   },
   suggestionText: {
     fontSize: 13,
-    fontFamily: "Orbit_400Regular",
+    fontFamily: "Inter_400Regular_Italic",
     color: "#111",
     lineHeight: 18,
   },
   searchInput: {
     padding: 14,
     fontSize: 14,
-    fontFamily: "Orbit_400Regular",
+    fontFamily: "Inter_400Regular",
     color: "#111",
+    letterSpacing: 0.05,
   },
   shareBtn: {
     backgroundColor: "#FFF",
@@ -615,16 +703,17 @@ const styles = StyleSheet.create({
   },
   shareBtnText: {
     fontSize: 14,
-    fontFamily: "Orbit_400Regular",
+    fontFamily: "Inter_500Medium_Italic",
     color: "#111",
   },
   inviteNote: {
     fontSize: 12,
-    fontFamily: "Orbit_400Regular",
+    fontFamily: "Inter_300Light",
     color: "#666",
     textAlign: "center",
     marginTop: 16,
     lineHeight: 18,
+    letterSpacing: 0.05,
   },
   startBtn: {
     backgroundColor: "#BFFF00",
@@ -637,17 +726,19 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 6,
   },
+  startBtnDisabled: {
+    opacity: 0.5,
+  },
   startBtnText: {
     fontSize: 16,
-    fontFamily: "Orbit_400Regular",
-    fontWeight: "600",
+    fontFamily: "Inter_700Bold_Italic",
     color: "#111",
-    letterSpacing: 1,
+    letterSpacing: 0.2,
   },
   errorText: {
-    fontSize: 12,
-    fontFamily: "Orbit_400Regular",
-    color: "#FF6B6B",
+    fontSize: 13,
+    fontFamily: "Inter_900Black_Italic",
+    color: "#D32F2F",
     marginTop: 8,
   },
 });
