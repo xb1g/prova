@@ -34,7 +34,7 @@ export type PopularGoal = {
 export async function fetchMyGoals(userId: string): Promise<MyGoal[]> {
   const { data: goals, error } = await supabase
     .from('goals')
-    .select('id, title, frequency_count, frequency_unit, status, created_at, challenge_id')
+    .select('id, title, frequency_count, frequency_unit, status, created_at')
     .eq('user_id', userId)
 
   if (error) throw error
@@ -42,13 +42,18 @@ export async function fetchMyGoals(userId: string): Promise<MyGoal[]> {
 
   return Promise.all(
     goals.map(async (goal) => {
-      // Fetch participants via challenge
+      // goals has no challenge_id — challenges references goals via creator_goal_id
       let participants: { user_id: string; status: string }[] = []
-      if (goal.challenge_id) {
+      const { data: challenge } = await supabase
+        .from('challenges')
+        .select('id')
+        .eq('creator_goal_id', goal.id)
+        .maybeSingle()
+      if (challenge) {
         const { data: parts } = await supabase
           .from('challenge_participants')
           .select('user_id, status')
-          .eq('challenge_id', goal.challenge_id)
+          .eq('challenge_id', challenge.id)
         participants = parts ?? []
       }
 

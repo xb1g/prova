@@ -59,7 +59,7 @@ export async function voteOnProof(
   accessToken: string
 ): Promise<{ status: string; approve_count: number; dispute_count: number }> {
   const res = await fetch(
-    `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/vote-on-proof`,
+    `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/vote-proof`,
     {
       method: "POST",
       headers: {
