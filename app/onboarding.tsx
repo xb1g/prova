@@ -10,6 +10,7 @@ import {
   Platform,
 } from "react-native";
 import { useState, useRef, useEffect } from "react";
+import Button from "../lib/components/Button";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { supabase } from "../lib/supabase";
@@ -246,17 +247,15 @@ export default function OnboardingScreen() {
             </View>
 
             {/* Confirm button */}
-            <Pressable
-              style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
-              onPress={handleSave}
+            <Button
+              label="Looks good →"
+              variant="primary"
+              size="md"
+              loading={saving}
               disabled={saving}
-            >
-              {saving ? (
-                <ActivityIndicator size="small" color="#111" />
-              ) : (
-                <Text style={styles.saveBtnText}>Looks good →</Text>
-              )}
-            </Pressable>
+              onPress={handleSave}
+              style={{ alignSelf: "stretch" }}
+            />
           </View>
         </View>
 

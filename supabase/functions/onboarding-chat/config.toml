@@ -1,0 +1,2 @@
+[functions."onboarding-chat"]
+verify_jwt = false

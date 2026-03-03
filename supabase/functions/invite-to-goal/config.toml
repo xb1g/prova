@@ -1,0 +1,2 @@
+[functions."invite-to-goal"]
+verify_jwt = false

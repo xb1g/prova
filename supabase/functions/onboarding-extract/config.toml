@@ -1,0 +1,2 @@
+[functions."onboarding-extract"]
+verify_jwt = false

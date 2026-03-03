@@ -1,0 +1,2 @@
+[functions."create-goal"]
+verify_jwt = false

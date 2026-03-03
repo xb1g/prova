@@ -1,0 +1,2 @@
+[functions."register-push-token"]
+verify_jwt = false

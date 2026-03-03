@@ -1,0 +1,2 @@
+[functions.get-popular-goals]
+verify_jwt = false

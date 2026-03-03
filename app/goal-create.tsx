@@ -13,6 +13,7 @@ import {
 import { useState, useRef, useCallback } from "react";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import Button from "../lib/components/Button";
 import {
   gradeGoal,
   realityCheck,
@@ -339,17 +340,15 @@ export default function GoalCreateScreen() {
         {/* Section 3: Reality Check */}
         {showRealityCheck && (
           <View style={styles.section}>
-            <Pressable
-              style={[styles.realityBtn, checkingReality && styles.realityBtnDisabled]}
-              onPress={handleRealityCheck}
+            <Button
+              label="🔍 Run Reality Check"
+              variant="ghost"
+              size="md"
+              loading={checkingReality}
               disabled={checkingReality}
-            >
-              {checkingReality ? (
-                <ActivityIndicator size="small" color="#111" />
-              ) : (
-                <Text style={styles.realityBtnText}>🔍 Run Reality Check</Text>
-              )}
-            </Pressable>
+              onPress={handleRealityCheck}
+              style={{ alignSelf: "stretch" }}
+            />
 
             {realityError && <Text style={styles.errorText}>⚠️ {realityError}</Text>}
             {realityResult && (
@@ -381,9 +380,13 @@ export default function GoalCreateScreen() {
                 returnKeyType="done"
               />
             </View>
-            <Pressable style={styles.shareBtn}>
-              <Text style={styles.shareBtnText}>🔗 Copy invite link</Text>
-            </Pressable>
+            <Button
+              label="🔗 Copy invite link"
+              variant="ghost"
+              size="md"
+              onPress={() => {}}
+              style={{ alignSelf: "stretch" }}
+            />
             <Text style={styles.inviteNote}>
               Friends set their own goal. Challenge starts once you both approve.
             </Text>
@@ -393,17 +396,15 @@ export default function GoalCreateScreen() {
         {showInvite && (
           <View style={styles.section}>
             {createError && <Text style={styles.errorText}>⚠️ {createError}</Text>}
-            <Pressable
-              style={[styles.startBtn, creatingGoal && styles.startBtnDisabled]}
-              onPress={handleStartChallenge}
+            <Button
+              label="🚀 Start Challenge"
+              variant="primary"
+              size="lg"
+              loading={creatingGoal}
               disabled={creatingGoal}
-            >
-              {creatingGoal ? (
-                <ActivityIndicator size="small" color="#111" />
-              ) : (
-                <Text style={styles.startBtnText}>🚀 Start Challenge</Text>
-              )}
-            </Pressable>
+              onPress={handleStartChallenge}
+              style={{ alignSelf: "stretch" }}
+            />
           </View>
         )}
 

@@ -1,0 +1,2 @@
+[functions."reality-check"]
+verify_jwt = false

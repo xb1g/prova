@@ -1,0 +1,2 @@
+[functions."goal-parse"]
+verify_jwt = false

@@ -1,6 +1,7 @@
 import { Stack, router } from "expo-router";
 import { useEffect } from "react";
 import { AuthProvider, useAuth } from "../lib/auth";
+import { registerPushToken } from "../lib/notifications";
 import { useFonts } from "expo-font";
 import {
   Inter_100Thin,
@@ -38,6 +39,8 @@ function RootNavigator() {
       router.replace("/onboarding");
     } else {
       router.replace("/(tabs)/goals");
+      // Best-effort push token registration after routing
+      registerPushToken(session.access_token);
     }
   }, [session, loading, profile, profileLoading]);
 
@@ -47,6 +50,7 @@ function RootNavigator() {
       <Stack.Screen name="onboarding" />
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="goal-create" />
+      <Stack.Screen name="proof-submit" />
     </Stack>
   );
 }
