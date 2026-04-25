@@ -10,6 +10,8 @@ type GoalCreateBody = {
   goalText: string;
   proofTypes?: string[];
   proofDescription?: string;
+  shortName?: string;
+  emoji?: string;
   smartGrade: {
     score: number;
     tips?: Record<string, string | null>;
@@ -99,6 +101,8 @@ Deno.serve(async (req) => {
       duration_type: inferDurationType(body.parsedGoal?.durationValue),
       duration_value: body.parsedGoal?.durationValue ?? null,
       ai_reality_check: body.realityResult ?? null,
+      short_name: body.shortName?.trim() ?? null,
+      emoji: body.emoji ?? null,
       status: "pending",
     } as const;
 

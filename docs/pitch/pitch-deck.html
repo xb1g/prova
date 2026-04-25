@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>PROVA — Proof Over Promises</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet"/>
+<script src="deck-stage.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --cream:   #F5F3EF;
+    --sage:    #7C9473;
+    --sage-lt: #A8BC9F;
+    --sage-dk: #5A7352;
+    --charcoal:#2F2F2F;
+    --muted:   #7A7872;
+    --warm:    #E8E4DC;
+    --warm2:   #DDD8CE;
+    --cream2:  #EFEDE8;
+  }
+
+  body { margin: 0; background: #1a1a18; font-family: 'DM Sans', sans-serif; }
+
+  /* ── Shared slide base ── */
+  section {
+    background: var(--cream);
+    color: var(--charcoal);
+    font-family: 'DM Sans', sans-serif;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Typography helpers ── */
+  .label {
+    font-size: 24px;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--sage);
+  }
+  .label-light {
+    font-size: 24px;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.55);
+  }
+  .headline {
+    font-size: 88px;
+    font-weight: 700;
+    line-height: 1.0;
+    letter-spacing: -0.025em;
+    color: var(--charcoal);
+  }
+  .headline-lg {
+    font-size: 112px;
+    font-weight: 700;
+    line-height: 0.95;
+    letter-spacing: -0.03em;
+  }
+  .headline-white { color: #fff; }
+  .sub {
+    font-size: 36px;
+    font-weight: 400;
+    line-height: 1.5;
+    color: var(--muted);
+  }
+  .body-text {
+    font-size: 34px;
+    font-weight: 400;
+    line-height: 1.55;
+    color: var(--charcoal);
+  }
+  .big-stat {
+    font-size: 140px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.04em;
+    color: var(--charcoal);
+  }
+  .big-stat-sage { color: var(--sage); }
+
+  /* ── Bullets ── */
+  .bullets {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+  .bullets li {
+    font-size: 34px;
+    font-weight: 400;
+    line-height: 1.4;
+    color: var(--charcoal);
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+  }
+  .bullets li::before {
+    content: '';
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--sage);
+    flex-shrink: 0;
+    margin-top: 14px;
+  }
+  .bullets-white li { color: rgba(255,255,255,0.92); }
+  .bullets-white li::before { background: rgba(255,255,255,0.55); }
+
+  /* ── Sage pill ── */
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    background: var(--sage);
+    color: #fff;
+    font-size: 24px;
+    font-weight: 500;
+    padding: 10px 28px;
+    border-radius: 100px;
+    letter-spacing: 0.01em;
+  }
+  .pill-outline {
+    display: inline-flex;
+    align-items: center;
+    border: 2px solid var(--sage);
+    color: var(--sage);
+    font-size: 24px;
+    font-weight: 500;
+    padding: 10px 28px;
+    border-radius: 100px;
+  }
+
+  /* ── Divider ── */
+  .rule { width: 64px; height: 3px; background: var(--sage); border-radius: 2px; }
+  .rule-lg { width: 120px; height: 4px; background: var(--sage); border-radius: 2px; }
+
+  /* ── Section header (sage bg) ── */
+  .section-header {
+    background: var(--sage);
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 100px 140px;
+  }
+
+  /* ── Card ── */
+  .card {
+    background: var(--cream2);
+    border-radius: 28px;
+    padding: 56px 60px;
+  }
+
+  /* ── Two-col ── */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 56px;
+    width: 100%;
+  }
+  .three-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 40px;
+    width: 100%;
+  }
+
+  /* ── Phone frame ── */
+  .phone-frame {
+    width: 300px;
+    height: 620px;
+    border-radius: 44px;
+    overflow: hidden;
+    box-shadow: 0 40px 120px rgba(0,0,0,0.18), 0 0 0 8px #2F2F2F;
+    background: #F5F3EF;
+    flex-shrink: 0;
+  }
+  .phone-frame img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top;
+  }
+
+  /* ── Competitor matrix ── */
+  .matrix-row {
+    display: grid;
+    grid-template-columns: 260px 1fr 1fr 1fr;
+    gap: 0;
+    align-items: center;
+  }
+  .matrix-cell {
+    padding: 22px 28px;
+    font-size: 28px;
+    border-bottom: 1px solid var(--warm2);
+  }
+  .matrix-cell.header {
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding-top: 0;
+    border-bottom: 2px solid var(--warm2);
+  }
+  .matrix-cell.brand {
+    font-weight: 600;
+    color: var(--charcoal);
+  }
+  .matrix-cell.prova {
+    background: rgba(124,148,115,0.08);
+    border-radius: 12px;
+  }
+  .check { color: var(--sage); font-size: 30px; }
+  .cross { color: #C9A08A; font-size: 30px; }
+
+  /* ── Step row ── */
+  .step {
+    display: flex;
+    align-items: flex-start;
+    gap: 36px;
+  }
+  .step-num {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: var(--sage);
+    color: #fff;
+    font-size: 32px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .step-text { font-size: 34px; line-height: 1.4; padding-top: 12px; }
+
+  /* ── Traction card ── */
+  .metric-block {
+    background: var(--cream2);
+    border-radius: 24px;
+    padding: 48px 52px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .metric-num {
+    font-size: 80px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    color: var(--sage);
+    line-height: 1;
+  }
+  .metric-label {
+    font-size: 28px;
+    color: var(--muted);
+    font-weight: 400;
+  }
+
+  /* ── Quote ── */
+  .quote-mark {
+    font-size: 140px;
+    line-height: 0.7;
+    color: var(--sage-lt);
+    font-weight: 700;
+    font-family: Georgia, serif;
+  }
+  .quote-text {
+    font-size: 54px;
+    font-weight: 500;
+    line-height: 1.25;
+    letter-spacing: -0.015em;
+  }
+
+  /* ── Ask bar ── */
+  .ask-bar {
+    display: flex;
+    align-items: center;
+    background: var(--sage);
+    border-radius: 24px;
+    padding: 48px 72px;
+    gap: 48px;
+  }
+  .ask-amount {
+    font-size: 80px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -0.03em;
+    white-space: nowrap;
+    line-height: 1;
+  }
+  .ask-desc {
+    font-size: 32px;
+    color: rgba(255,255,255,0.82);
+    line-height: 1.45;
+    font-weight: 400;
+  }
+
+  /* ── Team placeholder ── */
+  .avatar-box {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: var(--warm2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .avatar-box svg { width: 52px; height: 52px; color: var(--muted); }
+
+  /* ── Progress bar ── */
+  .progress-bar {
+    height: 10px;
+    border-radius: 100px;
+    background: var(--warm2);
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    border-radius: 100px;
+    background: var(--sage);
+  }
+</style>
+</head>
+<body>
+
+<deck-stage width="1920" height="1080">
+
+  <!-- ─────────────── 01 TITLE ─────────────── -->
+  <section data-label="Title" style="background:var(--charcoal); justify-content:center; padding: 0 160px;">
+    <div style="display:flex; flex-direction:column; gap:40px; max-width:900px;">
+      <div style="display:flex; align-items:center; gap:20px;">
+        <div style="width:52px;height:52px;border-radius:50%;background:var(--sage);display:flex;align-items:center;justify-content:center;">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <span style="font-size:28px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.6);">PROVA</span>
+      </div>
+      <div style="font-size:108px;font-weight:700;line-height:0.96;letter-spacing:-0.03em;color:#fff;">Proof<br/>Over<br/>Promises</div>
+      <div style="width:80px;height:4px;background:var(--sage);border-radius:2px;"></div>
+      <div style="font-size:34px;color:rgba(255,255,255,0.55);font-weight:400;line-height:1.5;max-width:680px;">
+        A social accountability platform that makes goals visible — and follow-through inevitable.
+      </div>
+    </div>
+    <div style="position:absolute;right:160px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:0;opacity:0.06;">
+      <div style="font-size:420px;font-weight:700;letter-spacing:-0.05em;color:#fff;line-height:0.85;">P</div>
+    </div>
+  </section>
+
+  <!-- ─────────────── 02 HOOK ─────────────── -->
+  <section data-label="Hook" style="background:var(--cream);justify-content:center;padding:0 160px;">
+    <div style="display:flex;flex-direction:column;gap:52px;max-width:1100px;">
+      <div class="quote-mark">"</div>
+      <div class="quote-text" style="color:var(--charcoal);">
+        Everyone sets goals.<br/>
+        <span style="color:var(--sage);">Almost no one follows through.</span>
+      </div>
+      <div class="rule-lg"></div>
+      <div style="font-size:34px;color:var(--muted);font-weight:400;line-height:1.5;max-width:800px;">
+        PROVA is built on one idea: <strong style="color:var(--charcoal);font-weight:600;">proof over promises.</strong>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────────── 03 PROBLEM (SECTION) ─────────────── -->
+  <section data-label="Problem" class="section-header">
+    <div style="display:flex;flex-direction:column;gap:32px;">
+      <span class="label-light">The Problem</span>
+      <div style="font-size:96px;font-weight:700;line-height:0.97;letter-spacing:-0.03em;color:#fff;max-width:900px;">
+        Goals fail by design.
+      </div>
+      <div style="font-size:36px;color:rgba(255,255,255,0.65);font-weight:400;line-height:1.5;max-width:780px;">
+        The tools we use to pursue goals were never built to keep us accountable.
+      </div>
+    </div>
+    <div style="position:absolute;right:140px;bottom:80px;font-size:320px;font-weight:700;color:rgba(0,0,0,0.1);line-height:1;letter-spacing:-0.04em;">92%</div>
+  </section>
+
+  <!-- ─────────────── 04 PROBLEM DETAIL ─────────────── -->
+  <section data-label="Problem Detail" style="background:var(--cream);padding:100px 160px;justify-content:center;">
+    <div style="display:flex;flex-direction:column;gap:56px;width:100%;">
+      <div style="display:flex;flex-direction:column;gap:20px;">
+        <span class="label">The problem</span>
+        <div class="big-stat"><span class="big-stat-sage">92%</span> of people<br/>never reach their goals</div>
+      </div>
+      <div class="two-col" style="gap:60px;">
+        <div class="card" style="display:flex;flex-direction:column;gap:20px;">
+          <div style="font-size:28px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:var(--muted);">Habit trackers</div>
+          <div style="font-size:34px;line-height:1.45;color:var(--charcoal);">Private and silent — easy to ignore when nobody's watching.</div>
+        </div>
+        <div class="card" style="display:flex;flex-direction:column;gap:20px;">
+          <div style="font-size:28px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:var(--muted);">Social media</div>
+          <div style="font-size:34px;line-height:1.45;color:var(--charcoal);">Performative, not accountability-driven. Highlight reels, not real progress.</div>
+        </div>
+      </div>
+      <div style="font-size:34px;color:var(--muted);font-weight:400;line-height:1.4;">
+        No product makes accountability <strong style="color:var(--charcoal);">both social and supportive</strong> — until now.
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────────── 05 SOLUTION (SECTION) ─────────────── -->
+  <section data-label="Solution" class="section-header">
+    <div style="display:flex;flex-direction:column;gap:32px;max-width:920px;">
+      <span class="label-light">Our Solution</span>
+      <div style="font-size:96px;font-weight:700;line-height:0.97;letter-spacing:-0.03em;color:#fff;">
+        If people are watching,<br/>you show up.
+      </div>
+      <div style="font-size:36px;color:rgba(255,255,255,0.65);font-weight:400;line-height:1.5;">
+        PROVA turns accountability into a social, low-pressure experience.
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────────── 06 SOLUTION DETAIL ─────────────── -->
+  <section data-label="Solution Detail" style="background:var(--cream);padding:100px 160px;justify-content:center;">
+    <div style="display:flex;flex-direction:column;gap:52px;width:100%;">
+      <div style="display:flex;flex-direction:column;gap:20px;">
+        <span class="label">How PROVA works</span>
+        <div style="font-size:72px;font-weight:700;letter-spacing:-0.025em;line-height:1.0;">Set goals. Post proof. Stay consistent.</div>
+      </div>
+      <div class="three-col">
+        <div style="display:flex;flex-direction:column;gap:20px;">
+          <div class="step-num">1</div>
+          <div style="font-size:32px;font-weight:600;color:var(--charcoal);">Share your goal</div>
+          <div style="font-size:28px;color:var(--muted);line-height:1.5;">Add accountability partners — friends or community.</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:20px;">
+          <div class="step-num">2</div>
+          <div style="font-size:32px;font-weight:600;color:var(--charcoal);">Post proof</div>
+          <div style="font-size:28px;color:var(--muted);line-height:1.5;">Photo, video, or text — real evidence of real progress.</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:20px;">
+          <div class="step-num">3</div>
+          <div style="font-size:32px;font-weight:600;color:var(--charcoal);">Build consistency</div>
+          <div style="font-size:28px;color:var(--muted);line-height:1.5;">Encouragement, reactions, and gentle accountability — not pressure.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────────── 07 PRODUCT ─────────────── -->
+  <section data-label="Product" style="background:var(--cream2);padding:100px 160px;justify-content:center;">
+    <div style="display:flex;gap:100px;align-items:center;width:100%;">
+      <div style="display:flex;flex-direction:column;gap:44px;flex:1;">
+        <div style="display:flex;flex-direction:column;gap:20px;">
+          <span class="label">The Product</span>
+          <div class="headline" style="font-size:76px;">A social feed built around accountability.</div>
+        </div>
+        <ul class="bullets">
+          <li>Goal creation + accountability partner invites</li>
+          <li>Proof posts — photo, video, or text updates</li>
+          <li>Social feed of progress from your circle</li>
+          <li>Reactions, encouragement, and gentle nudges</li>
+          <li>Accountability visibility — who saw your update</li>
+        </ul>
+        <div style="display:flex;align-items:center;gap:20px;">
+          <div class="pill">View Demo →</div>
+          <div style="font-size:26px;color:var(--muted);">[insert demo link]</div>
+        </div>
+      </div>
+      <!-- Phone mockup -->
+      <div style="flex-shrink:0;display:flex;justify-content:center;">
+        <div class="phone-frame" style="width:320px;height:660px;">
+          <img src="uploads/pasted-1776647906686-0.png" alt="PROVA app feed"/>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────────── 08 WHY NOW ─────────────── -->
+  <section data-label="Why Now" style="background:var(--charcoal);padding:100px 160px;justify-content:center;">
+    <div style="display:flex;flex-direction:column;gap:56px;width:100%;">
+      <div style="display:flex;flex-direction:column;gap:20px;">
+        <span class="label-light" style="color:rgba(255,255,255,0.45);">Why Now</span>
+        <div style="font-size:80px;font-weight:700;letter-spacing:-0.03em;line-height:1.0;color:#fff;">The moment has arrived.</div>
+      </div>
+      <div class="two-col" style="gap:48px;">
+        <div style="display:flex;flex-direction:column;gap:28px;">
+          <ul class="bullets bullets-white" style="gap:32px;">
+            <li>Social sharing is already normalized — accountability is the missing layer</li>
+            <li>Rise of "soft productivity" and wellness culture among Gen Z</li>
+            <li>Burnout from performative platforms is accelerating</li>
+          </ul>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:28px;">
+          <ul class="bullets bullets-white" style="gap:32px;">
+            <li>Social apps are moving toward smaller, more intentional communities</li>
+            <li>AI makes building easy — execution and <em>behavior change</em> matter more</li>
+            <li>Users want supportive spaces, not highlight reels</li>
+          </ul>
+        </div>
+      </div>
+      <div style="font-size:32px;color:var(--sage-lt);font-weight:400;line-height:1.4;border-left:4px solid var(--sage);padding-left:32px;">
+        PROVA sits at the intersection of social media, productivity, and habit tracking — a category that doesn't yet exist.
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────────── 09 MARKET ─────────────── -->
+  <section data-label="Market Opportunity" style="background:var(--cream);padding:100px 160px;justify-content:center;">
+    <div style="display:flex;flex-direction:column;gap:52px;width:100%;">
+      <div style="display:flex;flex-direction:column;gap:20px;">
+        <span class="label">Market Opportunity</span>
+        <div class="headline" style="font-size:80px;">A $40B+ market, underserved.</div>
+      </div>
+      <div class="three-col">
+        <div class="card" style="display:flex;flex-direction:column;gap:16px;">
+          <div style="font-size:24px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);">TAM</div>
+          <div style="font-size:72px;font-weight:700;letter-spacing:-0.03em;color:var(--sage);line-height:1;">$40B+</div>
+          <div style="font-size:28px;color:var(--muted);line-height:1.4;">Global self-improvement market</div>
+        </div>
+        <div class="card" style="display:flex;flex-direction:column;gap:16px;">
+          <div style="font-size:24px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);">SAM</div>
+          <div style="font-size:72px;font-weight:700;letter-spacing:-0.03em;color:var(--charcoal);line-height:1;">[SAM]</div>
+          <div style="font-size:28px;color:var(--muted);line-height:1.4;">Habit tracking & productivity apps</div>
+        </div>
+        <div class="card" style="display:flex;flex-direction:column;gap:16px;">
+          <div style="font-size:24px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);">SOM</div>
+          <div style="font-size:72px;font-weight:700;letter-spacing:-0.03em;color:var(--charcoal);line-height:1;">[SOM]</div>
+          <div style="font-size:28px;color:var(--muted);line-height:1.4;">Gen Z + young professionals, wellness focus</div>
+        </div>
+      </div>
+      <div style="font-size:30px;color:var(--muted);font-weight:400;">
+        Even capturing a small percentage of an active, paying user base translates to a significant revenue opportunity.
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────────── 10 BUSINESS MODEL ─────────────── -->
+  <section data-label="Business Model" style="background:var(--cream2);padding:100px 160px;justify-content:center;">
+    <div style="display:flex;flex-direction:column;gap:52px;width:100%;">
+      <div style="display:flex;flex-direction:column;gap:20px;">
+        <span class="label">Business Model</span>
+        <div class="headline" style="font-size:80px;">Engagement first, revenue second.</div>
+      </div>
+      <div class="two-col" style="gap:56px;">
+        <div style="display:flex;flex-direction:column;gap:28px;">
+          <div style="font-size:30px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--sage);">Primary — B2B Partnerships</div>
+          <ul class="bullets">
+            <li>Brands create accountability challenges on PROVA</li>
+            <li>Users join, post proof, earn rewards</li>
+            <li>Brands pay for engagement, exposure, and access to motivated users</li>
+            <li>Example: fitness brands, athleisure, wellness companies</li>
+          </ul>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:28px;">
+          <div style="font-size:30px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);">Future — Consumer</div>
+          <ul class="bullets" style="opacity:0.7;">
+            <li><strong>Freemium:</strong> Free basic tracking → $2.99/mo unlimited goals + analytics</li>
+            <li>Group accountability plans — paid challenges ($5–10)</li>
+            <li>Creator-led accountability groups with revenue share</li>
+          </ul>
+          <div style="font-size:26px;color:var(--muted);font-style:italic;border-left:3px solid var(--warm2);padding-left:24px;line-height:1.5;">
+            "Optimizing for engagement first — revenue follows community."
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────────── 11 TRACTION ─────────────── -->
+  <section data-label="Traction" style="background:var(--cream);padding:100px 160px;justify-content:center;">
+    <div style="display:flex;flex-direction:column;gap:52px;width:100%;">
+      <div style="display:flex;flex-direction:column;gap:20px;">
+        <span class="label">Traction</span>
+        <div class="headline" style="font-size:80px;">Early signals, real momentum.</div>
+      </div>
+      <div class="three-col">
+        <div class="metric-block">
+          <div class="metric-num">[X]</div>
+          <div style="width:60%;height:8px;background:var(--warm2);border-radius:100px;overflow:hidden;margin:4px 0 8px;">
+            <div style="width:60%;height:100%;background:var(--sage);border-radius:100px;"></div>
+          </div>
+          <div class="metric-label">Early users signed up</div>
+        </div>
+        <div class="metric-block">
+          <div class="metric-num">[X]%</div>
+          <div style="width:60%;height:8px;background:var(--warm2);border-radius:100px;overflow:hidden;margin:4px 0 8px;">
+            <div style="width:45%;height:100%;background:var(--sage);border-radius:100px;"></div>
+          </div>
+          <div class="metric-label">Created at least one goal</div>
+        </div>
+        <div class="metric-block">
+          <div class="metric-num">[X]%</div>
+          <div style="width:60%;height:8px;background:var(--warm2);border-radius:100px;overflow:hidden;margin:4px 0 8px;">
+            <div style="width:35%;height:100%;background:var(--sage);border-radius:100px;"></div>
+          </div>
+          <div class="metric-label">Engaged with accountability features</div>
+        </div>
+      </div>
+      <div style="background:var(--cream2);border-radius:20px;padding:36px 48px;font-size:30px;color:var(--muted);line-height:1.55;font-style:italic;">
+        "Several users expressed strong interest in paying for premium tools. A majority engaged with social accountability features — the core mechanic — on day one."
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────────── 12 COMPETITION ─────────────── -->
+  <section data-label="Competition" style="background:var(--cream2);padding:100px 160px;justify-content:center;">
+    <div style="display:flex;flex-direction:column;gap:44px;width:100%;">
+      <div style="display:flex;flex-direction:column;gap:20px;">
+        <span class="label">Competitive Landscape</span>
+        <div class="headline" style="font-size:76px;">We sit at the intersection no one owns.</div>
+      </div>
+      <!-- Matrix -->
+      <div style="background:#fff;border-radius:24px;padding:48px 56px;">
+        <div class="matrix-row" style="margin-bottom:8px;">
+          <div class="matrix-cell header"></div>
+          <div class="matrix-cell header" style="text-align:center;">Social</div>
+          <div class="matrix-cell header" style="text-align:center;">Accountability</div>
+          <div class="matrix-cell header" style="text-align:center;">Supportive</div>
+        </div>
+        <div class="matrix-row" style="background:rgba(124,148,115,0.07);border-radius:12px;">
+          <div class="matrix-cell brand" style="color:var(--sage);font-size:32px;font-weight:700;">✓ PROVA</div>
+          <div class="matrix-cell" style="text-align:center;"><span class="check">✓</span></div>
+          <div class="matrix-cell" style="text-align:center;"><span class="check">✓</span></div>
+          <div class="matrix-cell" style="text-align:center;"><span class="check">✓</span></div>
+        </div>
+        <div class="matrix-row">
+          <div class="matrix-cell brand">Habitica / Streaks</div>
+          <div class="matrix-cell" style="text-align:center;"><span class="cross">✗</span></div>
+          <div class="matrix-cell" style="text-align:center;"><span class="check">✓</span></div>
+          <div class="matrix-cell" style="text-align:center;"><span class="cross">✗</span></div>
+        </div>
+        <div class="matrix-row">
+          <div class="matrix-cell brand">Instagram / TikTok</div>
+          <div class="matrix-cell" style="text-align:center;"><span class="check">✓</span></div>
+          <div class="matrix-cell" style="text-align:center;"><span class="cross">✗</span></div>
+          <div class="matrix-cell" style="text-align:center;"><span class="cross">✗</span></div>
+        </div>
+        <div class="matrix-row" style="border-bottom:none;">
+          <div class="matrix-cell brand" style="border-bottom:none;">Strava / Fitness apps</div>
+          <div class="matrix-cell" style="text-align:center;border-bottom:none;"><span class="check">✓</span></div>
+          <div class="matrix-cell" style="text-align:center;border-bottom:none;"><span class="cross">✗</span></div>
+          <div class="matrix-cell" style="text-align:center;border-bottom:none;"><span class="cross">✗</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────────── 13 POSITIONING ─────────────── -->
+  <section data-label="Positioning" style="background:var(--sage);justify-content:center;padding:0 160px;">
+    <div style="display:flex;flex-direction:column;gap:48px;max-width:1100px;">
+      <div class="quote-mark" style="color:rgba(255,255,255,0.3);">"</div>
+      <div style="font-size:72px;font-weight:700;line-height:1.1;letter-spacing:-0.025em;color:#fff;">
+        PROVA makes accountability feel supportive, not stressful.
+      </div>
+      <div class="rule-lg" style="background:rgba(255,255,255,0.4);"></div>
+      <div style="font-size:34px;color:rgba(255,255,255,0.7);font-weight:400;line-height:1.5;">
+        A support system, not pressure. A community, not a tool.<br/>A place for consistent growth — together.
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────────── 14 TEAM ─────────────── -->
+  <section data-label="Team" style="background:var(--cream);padding:100px 160px;justify-content:center;">
+    <div style="display:flex;flex-direction:column;gap:56px;width:100%;">
+      <div style="display:flex;flex-direction:column;gap:20px;">
+        <span class="label">The Team</span>
+        <div class="headline" style="font-size:80px;">Built by people who live the problem.</div>
+      </div>
+      <div class="two-col" style="gap:40px;">
+        <div style="display:flex;align-items:center;gap:36px;background:var(--cream2);border-radius:24px;padding:44px 48px;">
+          <div class="avatar-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div style="font-size:36px;font-weight:600;color:var(--charcoal);">[Founder Name]</div>
+            <div style="font-size:26px;color:var(--sage);font-weight:500;">[Role]</div>
+            <div style="font-size:24px;color:var(--muted);line-height:1.4;">[Background / expertise]</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:36px;background:var(--cream2);border-radius:24px;padding:44px 48px;">
+          <div class="avatar-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div style="font-size:36px;font-weight:600;color:var(--charcoal);">[Team Member]</div>
+            <div style="font-size:26px;color:var(--sage);font-weight:500;">[Role]</div>
+            <div style="font-size:24px;color:var(--muted);line-height:1.4;">[Background / expertise]</div>
+          </div>
+        </div>
+      </div>
+      <div style="font-size:30px;color:var(--muted);line-height:1.5;font-style:italic;">
+        Early users are actively shaping the product — community-driven development from day one.
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────────── 15 ASK ─────────────── -->
+  <section data-label="The Ask" style="background:var(--charcoal);padding:100px 160px;justify-content:center;">
+    <div style="display:flex;flex-direction:column;gap:60px;width:100%;">
+      <div style="display:flex;flex-direction:column;gap:20px;">
+        <span class="label-light" style="color:rgba(255,255,255,0.45);">Funding Ask</span>
+        <div style="font-size:80px;font-weight:700;letter-spacing:-0.03em;line-height:1.0;color:#fff;">Seed the proof of concept.</div>
+      </div>
+      <div class="ask-bar">
+        <div class="ask-amount">$5K–$10K</div>
+        <div style="width:2px;height:80px;background:rgba(255,255,255,0.25);flex-shrink:0;"></div>
+        <div class="ask-desc">
+          To enhance development, accelerate user testing, and validate our core accountability mechanics with real users at scale.
+        </div>
+      </div>
+      <div class="three-col" style="gap:32px;">
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="font-size:26px;font-weight:600;color:var(--sage-lt);">Milestone 1</div>
+          <div style="font-size:28px;color:rgba(255,255,255,0.75);line-height:1.4;">Scale to 1,000 users. Prove engagement with accountability features.</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="font-size:26px;font-weight:600;color:var(--sage-lt);">Milestone 2</div>
+          <div style="font-size:28px;color:rgba(255,255,255,0.75);line-height:1.4;">Launch first B2B brand challenge. Validate the partnership model.</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="font-size:26px;font-weight:600;color:var(--sage-lt);">Milestone 3</div>
+          <div style="font-size:28px;color:rgba(255,255,255,0.75);line-height:1.4;">Demonstrate product-market fit and position for next funding round.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────────── 16 CLOSING ─────────────── -->
+  <section data-label="Closing" style="background:var(--cream);justify-content:center;padding:0 160px;">
+    <div style="display:flex;flex-direction:column;gap:52px;max-width:1080px;">
+      <div style="display:flex;align-items:center;gap:20px;">
+        <div style="width:52px;height:52px;border-radius:50%;background:var(--sage);display:flex;align-items:center;justify-content:center;">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <span style="font-size:28px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--sage);">PROVA</span>
+      </div>
+      <div class="rule-lg"></div>
+      <div style="font-size:88px;font-weight:700;line-height:1.0;letter-spacing:-0.03em;color:var(--charcoal);">
+        In a world full of intentions,<br/>
+        <span style="color:var(--sage);">PROVA makes action visible.</span>
+      </div>
+      <div style="font-size:34px;color:var(--muted);font-weight:400;line-height:1.5;">
+        Thank you. We'd love to answer your questions.
+      </div>
+    </div>
+    <div style="position:absolute;right:140px;top:50%;transform:translateY(-50%);opacity:0.05;">
+      <svg width="480" height="480" viewBox="0 0 24 24" fill="none" stroke="#7C9473" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+    </div>
+  </section>
+
+</deck-stage>
+
+<!-- Tweaks panel -->
+<style>
+  #tweaks-panel {
+    display: none;
+    position: fixed;
+    bottom: 80px;
+    right: 24px;
+    background: #fff;
+    border-radius: 16px;
+    padding: 24px 28px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.14);
+    z-index: 2147483647;
+    min-width: 260px;
+    font-family: 'DM Sans', sans-serif;
+  }
+  #tweaks-panel h3 { font-size: 14px; font-weight: 600; margin-bottom: 16px; color: #2F2F2F; letter-spacing: 0.08em; text-transform: uppercase; }
+  .tweak-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; gap: 16px; }
+  .tweak-label { font-size: 13px; color: #555; }
+  .tweak-row input[type=color] { width: 36px; height: 28px; border: none; background: none; cursor: pointer; padding: 0; border-radius: 6px; }
+  .tweak-row select { font-size: 13px; border: 1px solid #e0e0e0; border-radius: 8px; padding: 4px 8px; color: #2F2F2F; background: #fff; cursor: pointer; }
+</style>
+<div id="tweaks-panel">
+  <h3>Tweaks</h3>
+  <div class="tweak-row">
+    <span class="tweak-label">Accent color</span>
+    <input type="color" id="tweak-sage" value="#7C9473"/>
+  </div>
+  <div class="tweak-row">
+    <span class="tweak-label">Background</span>
+    <input type="color" id="tweak-bg" value="#F5F3EF"/>
+  </div>
+  <div class="tweak-row">
+    <span class="tweak-label">Font</span>
+    <select id="tweak-font">
+      <option value="'DM Sans', sans-serif">DM Sans</option>
+      <option value="'Inter', sans-serif">Inter</option>
+      <option value="Georgia, serif">Georgia</option>
+    </select>
+  </div>
+</div>
+
+<script>
+  const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+    "sage": "#7C9473",
+    "bg": "#F5F3EF",
+    "font": "'DM Sans', sans-serif"
+  }/*EDITMODE-END*/;
+
+  function applyTweaks(t) {
+    document.documentElement.style.setProperty('--sage', t.sage);
+    document.documentElement.style.setProperty('--sage-lt', t.sage + 'bb');
+    document.documentElement.style.setProperty('--sage-dk', t.sage);
+    document.documentElement.style.setProperty('--cream', t.bg);
+    document.documentElement.style.setProperty('--cream2', t.bg + 'dd');
+    document.body.style.fontFamily = t.font;
+    document.querySelectorAll('section, .card, .metric-block').forEach(el => {
+      el.style.fontFamily = t.font;
+    });
+    document.getElementById('tweak-sage').value = t.sage;
+    document.getElementById('tweak-bg').value = t.bg;
+    document.getElementById('tweak-font').value = t.font;
+  }
+
+  applyTweaks(TWEAK_DEFAULTS);
+
+  document.getElementById('tweak-sage').addEventListener('input', e => {
+    TWEAK_DEFAULTS.sage = e.target.value;
+    applyTweaks(TWEAK_DEFAULTS);
+    window.parent.postMessage({type:'__edit_mode_set_keys', edits: {sage: e.target.value}}, '*');
+  });
+  document.getElementById('tweak-bg').addEventListener('input', e => {
+    TWEAK_DEFAULTS.bg = e.target.value;
+    applyTweaks(TWEAK_DEFAULTS);
+    window.parent.postMessage({type:'__edit_mode_set_keys', edits: {bg: e.target.value}}, '*');
+  });
+  document.getElementById('tweak-font').addEventListener('change', e => {
+    TWEAK_DEFAULTS.font = e.target.value;
+    applyTweaks(TWEAK_DEFAULTS);
+    window.parent.postMessage({type:'__edit_mode_set_keys', edits: {font: e.target.value}}, '*');
+  });
+
+  window.addEventListener('message', e => {
+    if (e.data?.type === '__activate_edit_mode') document.getElementById('tweaks-panel').style.display = 'block';
+    if (e.data?.type === '__deactivate_edit_mode') document.getElementById('tweaks-panel').style.display = 'none';
+  });
+  window.parent.postMessage({type: '__edit_mode_available'}, '*');
+</script>
+</body>
+</html>

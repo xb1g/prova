@@ -44,16 +44,15 @@ const parseFrequencyHeuristic = (goalText: string) => {
     matches.push({ count: parsedCount, unit });
   };
 
-  const patterns: Array<RegExp> = [
-    /\b(\d{1,2})\s*(?:x|×)\s*(?:per\s*|a\s*|each\s*)?(day|week|month|wk|month|daily|weekly|monthly|day|week|d|w|m)\b/gi,
+  // Two-capture patterns: count + unit
+  const twoCapture: RegExp[] = [
+    /\b(\d{1,2})\s*(?:x|×)\s*(?:per\s*|a\s*|each\s*)?(day|week|month|wk|daily|weekly|monthly|d|w|m)\b/gi,
     /\b(\d{1,2})\s*\/\s*(day|week|month|wk|mo|d|w|m)\b/gi,
-    /\b(\d{1,2})\s*(?:times|time)\s*(?:per|a|each)\s*(day|week|month|wk|month|d|w|m)\b/gi,
-    /\b(once|twice|one|two|three|four|five|six|seven|eight|nine|ten)\s*(?:times?)?\s*(?:per|a|each)\s*(day|week|month|wk|month|d|w|m)\b/gi,
-    /\b(?:every|each)\s+(day|week|month|wk|d|w|m)\b/gi,
-    /\b(daily|weekly|monthly)\b/gi,
+    /\b(\d{1,2})\s*(?:times|time)\s*(?:per|a|each)\s*(day|week|month|wk|mo|d|w|m)\b/gi,
+    /\b(once|twice|one|two|three|four|five|six|seven|eight|nine|ten)\s*(?:times?)?\s*(?:per|a|each)\s*(day|week|month|wk|mo|d|w|m)\b/gi,
   ];
 
-  for (const regex of patterns) {
+  for (const regex of twoCapture) {
     let match: RegExpExecArray | null;
     while ((match = regex.exec(text)) !== null) {
       const [countRaw, unitRaw] = match.slice(1);
@@ -66,8 +65,33 @@ const parseFrequencyHeuristic = (goalText: string) => {
     }
   }
 
+  // Single-capture "every/each X" → count=1, unit=captured group
+  const everyPattern = /\b(?:every|each)\s+(day|week|month|wk|d|w|m)\b/gi;
+  let everyMatch: RegExpExecArray | null;
+  while ((everyMatch = everyPattern.exec(text)) !== null) {
+    const unit = normalizeUnit(everyMatch[1]);
+    if (unit) matches.push({ count: 1, unit });
+  }
+
+  // Shorthand words → count=1
+  const shorthandMap: Record<string, { count: number; unit: "day" | "week" | "month" }> = {
+    daily: { count: 1, unit: "day" },
+    weekly: { count: 1, unit: "week" },
+    monthly: { count: 1, unit: "month" },
+  };
+  const shorthandPattern = /\b(daily|weekly|monthly)\b/gi;
+  let shorthandMatch: RegExpExecArray | null;
+  while ((shorthandMatch = shorthandPattern.exec(text)) !== null) {
+    const entry = shorthandMap[shorthandMatch[1].toLowerCase()];
+    if (entry) matches.push(entry);
+  }
+
+  const selected = matches.length
+    ? matches.reduce((best, current) => (current.count > best.count ? current : best), matches[0])
+    : null;
+  console.log("[goal-parse heuristic]", { matches, selected });
   if (!matches.length) return null;
-  return matches.reduce((best, current) => (current.count > best.count ? current : best), matches[0]);
+  return selected;
 }
 
 const normalizeParse = (parsed: {
@@ -150,6 +174,7 @@ Respond with JSON only, no explanation:
     const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "");
     const parsed = JSON.parse(cleaned);
     const normalizedParsed = normalizeParse(parsed, goalText);
+    console.log("[goal-parse]", { goalText, aiResult: parsed, normalized: normalizedParsed });
 
     return new Response(JSON.stringify(normalizedParsed), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

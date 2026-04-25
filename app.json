@@ -14,7 +14,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.bunyasit.prova"
+      "bundleIdentifier": "com.bunyasit.prova",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -38,6 +41,12 @@
           "experimentalLauncherActivity": false
         }
       ]
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "fd6f2106-14fc-4f68-aac6-17a1bad48309"
+      }
+    }
   }
 }

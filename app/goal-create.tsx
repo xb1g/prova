@@ -19,9 +19,11 @@ import {
   realityCheck,
   parseGoal,
   createGoal,
+  nameGoal,
   SmartGradeResult,
   RealityCheckResult,
   GoalParseResult,
+  NameGoalResult,
 } from "../lib/ai";
 import { useAuth } from "../lib/auth";
 
@@ -52,6 +54,13 @@ export default function GoalCreateScreen() {
   const [parsedGoal, setParsedGoal] = useState<GoalParseResult | null>(null);
   const [parseChipDismissed, setParseChipDismissed] = useState(false);
 
+  const [goalName, setGoalName] = useState<NameGoalResult | null>(null);
+  const [namingGoal, setNamingGoal] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [customName, setCustomName] = useState("");
+  const [customEmoji, setCustomEmoji] = useState("");
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+
   const [selectedMeasurements, setSelectedMeasurements] = useState<string[]>([]);
   const [proofDescription, setProofDescription] = useState("");
 
@@ -71,7 +80,7 @@ export default function GoalCreateScreen() {
 
   const showMeasurement = goalText.trim().length > 5;
   const showRealityCheck = selectedMeasurements.length > 0;
-  const showInvite = realityDone;
+  const showInvite = realityDone || (smartGrade !== null && !checkingReality);
 
   const userProfileForGrading = profile
     ? { life_areas: profile.life_areas, direction: profile.direction, values: profile.values }
@@ -98,6 +107,11 @@ export default function GoalCreateScreen() {
         });
         if (runId !== gradeRunRef.current) return;
         setSmartGrade(result);
+        // Auto-trigger reality check after grading
+        if (!realityDone) {
+          setRealityDone(false);
+          triggerRealityCheck(text, proofTypes, parsed);
+        }
       } catch (err: unknown) {
         if (runId !== gradeRunRef.current) return;
         setGradeError(err instanceof Error ? err.message : String(err));
@@ -115,11 +129,13 @@ export default function GoalCreateScreen() {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
       setParseChipDismissed(false);
-      // Fire parse + grade in parallel
-      const [parseResult] = await Promise.all([
+      // Fire parse + name + grade in parallel
+      const [parseResult, nameResult] = await Promise.all([
         parseGoal(goalText).catch(() => null),
+        nameGoal(goalText).catch(() => null),
         runGrading(goalText, selectedMeasurements, proofDescription, null),
       ]);
+      if (nameResult) setGoalName(nameResult);
       if (parseResult) {
         setParsedGoal(parseResult);
         // Re-grade with frequency context
@@ -145,24 +161,31 @@ export default function GoalCreateScreen() {
     handleProofChange(next, proofDescription);
   };
 
-  const handleRealityCheck = async () => {
-    Keyboard.dismiss();
+  const triggerRealityCheck = useCallback(async (
+    text: string,
+    proofTypes: string[],
+    parsed: GoalParseResult | null
+  ) => {
+    if (checkingReality) return;
     setCheckingReality(true);
     setRealityError(null);
     try {
       const result = await realityCheck({
-        goalText,
-        proofTypes: selectedMeasurements,
-        parsedFrequency: parsedGoal?.humanReadable ?? null,
+        goalText: text,
+        proofTypes,
+        parsedFrequency: parsed?.humanReadable ?? null,
       });
       setRealityResult(result);
       setRealityDone(true);
+      console.log("[goal-create] reality check result:", result);
     } catch (err: unknown) {
       setRealityError(err instanceof Error ? err.message : String(err));
     } finally {
       setCheckingReality(false);
     }
-  };
+  }, [checkingReality]);
+
+  const handleRealityCheck = () => triggerRealityCheck(goalText, selectedMeasurements, parsedGoal);
 
   const handleStartChallenge = async () => {
     setCreatingGoal(true);
@@ -175,6 +198,8 @@ export default function GoalCreateScreen() {
         smartGrade,
         parsedGoal,
         realityResult,
+        shortName: goalName?.shortName ?? undefined,
+        emoji: goalName?.emoji ?? undefined,
       });
       router.replace("/(tabs)/goals");
     } catch (err: unknown) {
@@ -185,9 +210,9 @@ export default function GoalCreateScreen() {
   };
 
   const scoreColor = (score: number) => {
-    if (score >= 80) return "#BFFF00";
-    if (score >= 50) return "#FFE500";
-    return "#FF6B6B";
+    if (score >= 80) return "#7C9473";
+    if (score >= 50) return "#E6A817";
+    return "#C0392B";
   };
 
   return (
@@ -220,7 +245,7 @@ export default function GoalCreateScreen() {
               style={styles.goalInput}
               multiline
               placeholder={"I will...  (include how often, e.g. 3× a week)"}
-              placeholderTextColor="#999"
+              placeholderTextColor="#A8A098"
               value={goalText}
               onChangeText={setGoalText}
               onBlur={handleGoalBlur}
@@ -238,6 +263,57 @@ export default function GoalCreateScreen() {
                 <Text style={styles.parseChipDismiss}>✕</Text>
               </Pressable>
             </View>
+          )}
+
+          {/* Name chip */}
+          {goalName && !editingName && (
+            <Pressable style={styles.nameChip} onPress={() => {
+              setEditingName(true);
+              setCustomName(goalName.shortName);
+              setCustomEmoji(goalName.emoji);
+            }}>
+              <Text style={styles.nameChipEmoji}>{goalName.emoji}</Text>
+              <Text style={styles.nameChipText}>{goalName.shortName}</Text>
+              <Text style={styles.nameChipEdit}>✏️</Text>
+            </Pressable>
+          )}
+          {editingName && (
+            <>
+              <View style={styles.nameEditRow}>
+                <Pressable onPress={() => setShowEmojiPicker((v) => !v)} style={styles.emojiPickerBtn}>
+                  <Text style={{ fontSize: 28 }}>{customEmoji || goalName?.emoji || "🎯"}</Text>
+                </Pressable>
+                <TextInput
+                  style={styles.nameEditInput}
+                  value={customName}
+                  onChangeText={setCustomName}
+                  placeholder="Short name..."
+                  placeholderTextColor="#A8A098"
+                  maxLength={40}
+                  onSubmitEditing={() => {
+                    setGoalName({ shortName: customName, emoji: customEmoji || goalName?.emoji || "🎯" });
+                    setEditingName(false);
+                    setShowEmojiPicker(false);
+                  }}
+                />
+                <Pressable onPress={() => {
+                  setGoalName({ shortName: customName, emoji: customEmoji || goalName?.emoji || "🎯" });
+                  setEditingName(false);
+                  setShowEmojiPicker(false);
+                }}>
+                  <Text style={styles.nameEditDone}>✓</Text>
+                </Pressable>
+              </View>
+              {showEmojiPicker && (
+                <View style={styles.emojiRow}>
+                  {["🏃", "📚", "🧘", "💧", "🏋️", "🥗", "🌙", "✍️", "🎯", "💪", "🌿", "🎨"].map((em) => (
+                    <Pressable key={em} onPress={() => { setCustomEmoji(em); setShowEmojiPicker(false); }}>
+                      <Text style={styles.emojiOption}>{em}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+            </>
           )}
 
           {(grading || Boolean(smartGrade) || Boolean(gradeError)) && (
@@ -289,6 +365,29 @@ export default function GoalCreateScreen() {
                       </View>
                     );
                   })}
+
+                  {/* Auto reality check — shown inside grade area */}
+                  {checkingReality && (
+                    <View style={styles.realityInline}>
+                      <ActivityIndicator size="small" color="#7C9473" />
+                      <Text style={styles.realityInlineLabel}>Checking reality...</Text>
+                    </View>
+                  )}
+                  {realityResult && (
+                    <View style={styles.realityInlineResult}>
+                      <Text style={styles.realityLikelihood}>
+                        {realityResult.likelihood >= 70 ? "✅" : realityResult.likelihood >= 40 ? "⚠️" : "🚨"}{" "}
+                        {realityResult.likelihood}% likely to stick
+                      </Text>
+                      {realityResult.pitfalls.map((p, i) => (
+                        <Text key={i} style={styles.pitfallText}>• {p}</Text>
+                      ))}
+                      {realityResult.suggestions.map((s, i) => (
+                        <Text key={i} style={styles.suggestionText}>💡 {s}</Text>
+                      ))}
+                    </View>
+                  )}
+                  {realityError && <Text style={styles.errorText}>⚠️ {realityError}</Text>}
                 </View>
               ) : (
                 <Text style={styles.errorText}>⚠️ {gradeError}</Text>
@@ -326,7 +425,7 @@ export default function GoalCreateScreen() {
                 style={styles.proofInput}
                 multiline
                 placeholder="Describe what the proof should show..."
-                placeholderTextColor="#999"
+                placeholderTextColor="#A8A098"
                 value={proofDescription}
                 onChangeText={(v) => {
                   setProofDescription(v);
@@ -334,34 +433,6 @@ export default function GoalCreateScreen() {
                 }}
               />
             </View>
-          </View>
-        )}
-
-        {/* Section 3: Reality Check */}
-        {showRealityCheck && (
-          <View style={styles.section}>
-            <Button
-              label="🔍 Run Reality Check"
-              variant="ghost"
-              size="md"
-              loading={checkingReality}
-              disabled={checkingReality}
-              onPress={handleRealityCheck}
-              style={{ alignSelf: "stretch" }}
-            />
-
-            {realityError && <Text style={styles.errorText}>⚠️ {realityError}</Text>}
-            {realityResult && (
-              <View style={styles.realityResult}>
-                <Text style={styles.likelihoodText}>{realityResult.likelihood}% likelihood</Text>
-                {realityResult.pitfalls.map((p, i) => (
-                  <Text key={i} style={styles.pitfallText}>⚠️ {p}</Text>
-                ))}
-                {realityResult.suggestions.map((s, i) => (
-                  <Text key={i} style={styles.suggestionText}>💡 {s}</Text>
-                ))}
-              </View>
-            )}
           </View>
         )}
 
@@ -374,7 +445,7 @@ export default function GoalCreateScreen() {
                 ref={friendInputRef}
                 style={styles.searchInput}
                 placeholder="Search username..."
-                placeholderTextColor="#999"
+                placeholderTextColor="#A8A098"
                 value={friendSearch}
                 onChangeText={setFriendSearch}
                 returnKeyType="done"
@@ -415,7 +486,7 @@ export default function GoalCreateScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#FDFFF5" },
+  container: { flex: 1, backgroundColor: "#F5F3EF" },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -426,15 +497,14 @@ const styles = StyleSheet.create({
   },
   backBtn: {
     fontSize: 14,
-    fontFamily: "Inter_100Thin",
-    color: "#111",
-    letterSpacing: 0.1,
+    fontFamily: "Inter_500Medium",
+    color: "#8A8075",
     width: 60,
   },
   title: {
     fontSize: 20,
     fontFamily: "Inter_800ExtraBold",
-    color: "#111",
+    color: "#2F2F2F",
     letterSpacing: 0.2,
   },
   scroll: { flex: 1 },
@@ -442,16 +512,17 @@ const styles = StyleSheet.create({
   section: { marginBottom: 28 },
   sectionLabel: {
     fontSize: 13,
-    fontFamily: "Inter_200ExtraLight_Italic",
-    color: "#111",
+    fontFamily: "Inter_600SemiBold",
+    fontWeight: "600",
+    color: "#2F2F2F",
     marginBottom: 10,
   },
   inputCard: {
-    backgroundColor: "#FFF",
+    backgroundColor: "#FDFAF5",
     borderRadius: 16,
-    shadowColor: "#000",
+    shadowColor: "#2F2F2F",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.07,
     shadowRadius: 8,
     elevation: 3,
   },
@@ -459,13 +530,13 @@ const styles = StyleSheet.create({
     padding: 16,
     minHeight: 80,
     fontSize: 15,
-    fontFamily: "Inter_300Light",
-    color: "#111",
+    fontFamily: "Inter_400Regular",
+    color: "#2F2F2F",
   },
   parseChip: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F5FFD6",
+    backgroundColor: "#D9EED3",
     borderRadius: 20,
     paddingHorizontal: 14,
     paddingVertical: 8,
@@ -475,14 +546,13 @@ const styles = StyleSheet.create({
   parseChipText: {
     flex: 1,
     fontSize: 12,
-    fontFamily: "Inter_400Regular_Italic",
-    color: "#4A7000",
-    letterSpacing: 0.05,
+    fontFamily: "Inter_400Regular",
+    color: "#4F6F52",
   },
   parseChipDismiss: {
     fontSize: 12,
-    fontFamily: "Inter_100Thin_Italic",
-    color: "#888",
+    fontFamily: "Inter_500Medium",
+    color: "#8A8075",
   },
   gradeRow: {
     flexDirection: "row",
@@ -492,31 +562,27 @@ const styles = StyleSheet.create({
   },
   gradingText: {
     fontSize: 14,
-    fontFamily: "Inter_300Light",
-    color: "#333",
-    letterSpacing: 0.08,
+    fontFamily: "Inter_400Regular",
+    color: "#8A8075",
   },
   gradeContainer: {
     marginTop: 12,
-    backgroundColor: "#FFF",
+    backgroundColor: "#FDFAF5",
     borderRadius: 16,
     padding: 14,
     minHeight: 140,
     gap: 10,
-    shadowColor: "#000",
+    shadowColor: "#2F2F2F",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 3,
-    borderWidth: 1,
-    borderColor: "#E8E8E8",
   },
   placeholderTitle: {
     fontSize: 14,
-    color: "#444",
+    color: "#8A8075",
     marginBottom: 8,
-    fontFamily: "Inter_400Regular_Italic",
-    letterSpacing: 0.05,
+    fontFamily: "Inter_400Regular",
   },
   placeholderRow: {
     flexDirection: "row",
@@ -529,13 +595,13 @@ const styles = StyleSheet.create({
     width: 18,
     fontSize: 13,
     fontFamily: "Inter_700Bold",
-    color: "#666",
+    color: "#8A8075",
   },
   placeholderBar: {
     flex: 1,
     height: 8,
     borderRadius: 3,
-    backgroundColor: "#E6E6E6",
+    backgroundColor: "#E8E2D9",
   },
   overallRow: {
     flexDirection: "row",
@@ -545,16 +611,15 @@ const styles = StyleSheet.create({
   },
   degradedText: {
     fontSize: 12,
-    color: "#555",
+    color: "#8A8075",
     marginBottom: 6,
-    fontFamily: "Inter_300Light_Italic",
-    letterSpacing: 0.05,
+    fontFamily: "Inter_400Regular",
   },
   overallLabel: {
     fontSize: 14,
-    fontFamily: "Inter_100Thin",
-    color: "#333",
-    letterSpacing: 0.1,
+    fontFamily: "Inter_600SemiBold",
+    fontWeight: "600",
+    color: "#2F2F2F",
   },
   scoreBadge: {
     paddingHorizontal: 12,
@@ -563,8 +628,9 @@ const styles = StyleSheet.create({
   },
   scoreText: {
     fontSize: 15,
-    fontFamily: "Inter_800ExtraBold_Italic",
-    color: "#111",
+    fontFamily: "Inter_800ExtraBold",
+    fontWeight: "800",
+    color: "#FDFAF5",
   },
   dimRow: {
     flexDirection: "row",
@@ -581,18 +647,18 @@ const styles = StyleSheet.create({
   dimLetter: {
     fontSize: 14,
     fontFamily: "Inter_700Bold",
-    color: "#111",
+    fontWeight: "700",
+    color: "#2F2F2F",
   },
   dimFull: {
     fontSize: 12,
-    fontFamily: "Inter_200ExtraLight",
-    letterSpacing: 0.05,
-    color: "#666",
+    fontFamily: "Inter_400Regular",
+    color: "#8A8075",
   },
   dimBarTrack: {
     flex: 1,
     height: 6,
-    backgroundColor: "#EAEAEA",
+    backgroundColor: "#E8E2D9",
     borderRadius: 3,
     overflow: "hidden",
   },
@@ -603,64 +669,50 @@ const styles = StyleSheet.create({
   dimScore: {
     fontSize: 13,
     fontFamily: "Inter_600SemiBold",
+    fontWeight: "600",
     width: 28,
     textAlign: "right",
   },
   dimTip: {
     fontSize: 12,
-    fontFamily: "Inter_300Light_Italic",
-    color: "#666",
+    fontFamily: "Inter_400Regular",
+    color: "#8A8075",
     width: "100%",
     paddingLeft: 98,
     lineHeight: 16,
   },
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: {
-    backgroundColor: "#FFF",
+    backgroundColor: "#FDFAF5",
     borderRadius: 20,
     paddingVertical: 10,
     paddingHorizontal: 16,
-    shadowColor: "#000",
+    shadowColor: "#2F2F2F",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06,
     shadowRadius: 4,
     elevation: 2,
   },
-  chipSelected: { backgroundColor: "#111" },
-  chipText: { fontSize: 13, fontFamily: "Inter_500Medium", color: "#111" },
-  chipTextSelected: { color: "#BFFF00" },
+  chipSelected: { backgroundColor: "#2F2F2F" },
+  chipText: { fontSize: 13, fontFamily: "Inter_500Medium", fontWeight: "500", color: "#2F2F2F" },
+  chipTextSelected: { color: "#FDFAF5" },
   proofInput: {
     padding: 14,
     minHeight: 60,
     fontSize: 14,
-    fontFamily: "Inter_200ExtraLight",
-    color: "#111",
+    fontFamily: "Inter_400Regular",
+    color: "#2F2F2F",
   },
-  realityBtn: {
-    backgroundColor: "#BFFF00",
-    borderRadius: 16,
-    padding: 18,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  realityBtnDisabled: { opacity: 0.5 },
-  realityBtnText: {
-    fontSize: 15,
-    fontFamily: "Inter_600SemiBold_Italic",
-    color: "#111",
-    letterSpacing: 0.15,
-  },
+  realityBtn: {},
+  realityBtnDisabled: {},
+  realityBtnText: {},
   realityResult: {
     marginTop: 16,
-    backgroundColor: "#FFF",
+    backgroundColor: "#FDFAF5",
     borderRadius: 16,
     padding: 16,
     gap: 8,
-    shadowColor: "#000",
+    shadowColor: "#2F2F2F",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
@@ -668,78 +720,89 @@ const styles = StyleSheet.create({
   },
   likelihoodText: {
     fontSize: 18,
-    fontFamily: "Inter_900Black",
-    color: "#111",
+    fontFamily: "Inter_800ExtraBold",
+    fontWeight: "800",
+    color: "#2F2F2F",
   },
   pitfallText: {
     fontSize: 13,
-    fontFamily: "Inter_300Light",
-    color: "#666",
+    fontFamily: "Inter_400Regular",
+    color: "#8A8075",
     lineHeight: 18,
   },
   suggestionText: {
     fontSize: 13,
-    fontFamily: "Inter_400Regular_Italic",
-    color: "#111",
+    fontFamily: "Inter_500Medium",
+    fontWeight: "500",
+    color: "#2F2F2F",
     lineHeight: 18,
   },
   searchInput: {
     padding: 14,
     fontSize: 14,
     fontFamily: "Inter_400Regular",
-    color: "#111",
-    letterSpacing: 0.05,
+    color: "#2F2F2F",
   },
-  shareBtn: {
-    backgroundColor: "#FFF",
-    borderRadius: 16,
-    padding: 16,
-    alignItems: "center",
-    marginTop: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  shareBtnText: {
-    fontSize: 14,
-    fontFamily: "Inter_500Medium_Italic",
-    color: "#111",
-  },
+  shareBtn: {},
+  shareBtnText: {},
   inviteNote: {
     fontSize: 12,
-    fontFamily: "Inter_300Light",
-    color: "#666",
+    fontFamily: "Inter_400Regular",
+    color: "#8A8075",
     textAlign: "center",
     marginTop: 16,
     lineHeight: 18,
-    letterSpacing: 0.05,
   },
-  startBtn: {
-    backgroundColor: "#BFFF00",
-    borderRadius: 20,
-    padding: 20,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    elevation: 6,
-  },
-  startBtnDisabled: {
-    opacity: 0.5,
-  },
-  startBtnText: {
-    fontSize: 16,
-    fontFamily: "Inter_700Bold_Italic",
-    color: "#111",
-    letterSpacing: 0.2,
-  },
+  startBtn: {},
+  startBtnDisabled: {},
+  startBtnText: {},
   errorText: {
     fontSize: 13,
-    fontFamily: "Inter_900Black_Italic",
-    color: "#D32F2F",
+    fontFamily: "Inter_600SemiBold",
+    fontWeight: "600",
+    color: "#C0392B",
     marginTop: 8,
   },
+  nameChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FDFAF5",
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    marginTop: 10,
+    gap: 8,
+    alignSelf: "flex-start",
+    shadowColor: "#2F2F2F",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  nameChipEmoji: { fontSize: 20 },
+  nameChipText: { fontSize: 14, fontFamily: "Inter_600SemiBold", fontWeight: "600", color: "#2F2F2F" },
+  nameChipEdit: { fontSize: 12, color: "#8A8075" },
+  nameEditRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FDFAF5",
+    borderRadius: 16,
+    padding: 10,
+    marginTop: 10,
+    gap: 8,
+    shadowColor: "#2F2F2F",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  emojiPickerBtn: { padding: 4 },
+  nameEditInput: { flex: 1, fontSize: 14, fontFamily: "Inter_500Medium", color: "#2F2F2F" },
+  nameEditDone: { fontSize: 20, color: "#7C9473", fontWeight: "700" },
+  emojiRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 },
+  emojiOption: { fontSize: 28, padding: 4 },
+  realityInline: { flexDirection: "row", alignItems: "center", gap: 8, paddingTop: 8 },
+  realityInlineLabel: { fontSize: 12, fontFamily: "Inter_400Regular", color: "#8A8075" },
+  realityInlineResult: { paddingTop: 10, gap: 6 },
+  realityLikelihood: { fontSize: 14, fontFamily: "Inter_700Bold", fontWeight: "700", color: "#2F2F2F" },
 });
